@@ -1,0 +1,76 @@
+==============================================================================
+CURSOR PROJECT RULES: TELEGRAM HYPER-CASUAL RHYTHM GAME
+==============================================================================
+1. ROLE & CORE OBJECTIVE
+You are a Lead Systems Game Designer and Senior Web Audio/Canvas Developer.
+Your objective is to build a viral, low-latency, hyper-casual HTML5 rhythm game for Telegram Mini Apps and Mobile Web based strictly on the technical architecture specification below.
+
+2. CORE AUDIO & TIMING ENGINE (CRITICAL CRITERIA)
+AUDIO TIME SOURCE: You MUST use Web Audio API (AudioContext.currentTime) as the single source of truth for all note positioning, timing calculations, and rendering.
+
+STRICT PROHIBITION: NEVER use setTimeout, setInterval, Date.now(), or performance.now() for audio-visual sync or note hit detection.
+
+TOUCH INPUT: Use pointerdown / pointermove / pointerup event listeners instead of click or touchstart. Apply touch-action: manipulation in CSS.
+
+OBJECT POOLING: Pre-allocate all note objects, particle FX, and hit effects. Do NOT allocate new objects (new Note(), array pushes) inside the animation loop (requestAnimationFrame).
+
+3. EXACT TIMING WINDOWS & SCORING MATHEMATICS
+Calculate note accuracy using the absolute time difference: Δt = |t_input - t_target|.
+
+PERFECT+: Δt ≤ ±22 ms | Multiplier: 1.2x | HP: +2.0% | Haptic: impactOccurred('light')
+
+PERFECT:  Δt ≤ ±45 ms | Multiplier: 1.0x | HP: +1.0% | Haptic: impactOccurred('light')
+
+GREAT:    Δt ≤ ±80 ms | Multiplier: 0.7x | HP: +0.5% | Haptic: impactOccurred('soft')
+
+GOOD:     Δt ≤ ±120 ms | Multiplier: 0.4x | HP: 0.0% | Haptic: none
+
+MISS:     Δt > ±120 ms | Multiplier: 0.0x | HP: -8.0% | Haptic: notificationOccurred('error')
+
+Score Formula: Score = Σ (1000 * Accuracy_Multiplier * Combo_Multiplier)
+Combo Multiplier: M_combo = min(1.0 + floor(Combo / 10) * 0.1, 4.0)
+
+4. SCREEN LAYOUT & HAND OCCLUSION PREVENTION
+Prevent hands/fingers from blocking incoming notes by enforcing vertical Y-axis zones (0.00 Y = Top, 1.00 Y = Bottom):
+
+SPAWN ZONE (0.00Y - 0.15Y): Notes spawn and fade in from gradient.
+
+APPROACH ZONE (0.15Y - 0.70Y): STRICTLY CLEAR. No UI buttons, banners, or overlays allowed here.
+
+HIT LINE (0.75Y): Fixed horizontal judgment line.
+
+TOUCH TARGET ZONE (0.70Y - 1.00Y): Bottom area where player touch input occurs.
+
+5. NOTE TYPES & VISUAL CODING
+TAP NOTE (#00F0FF - Cyan): Single tap on pointerdown.
+
+HOLD NOTE (#FF007A - Pink): Hold trail. Verify finger presence inside lane every 50ms until end.
+
+SWIPE NOTE (#00FF66 - Green): Arrow direction swipe. Require drag displacement Δx or Δy ≥ 30px within 100ms.
+
+AVOID NOTE (#FF3300 - Red Danger): Obstacle note. Touching this immediately subtracts 15% HP.
+
+6. FLOW STATE & NOVICE PROTECTION
+Max HP: 100 units. Game over occurs strictly when HP reaches 0.
+
+NOVICE SHIELD: For the first 15 seconds of any track or the first 3 MISS errors, activate a shield that absorbs 100% of HP damage.
+
+VISUAL JUICE: Spawn 15-25 particles on PERFECT hit. Trigger z-axis screen shake on 10x, 25x, and 50x combo thresholds.
+
+7. TELEGRAM MINI APP INTEGRATION
+Load Telegram WebApp SDK: [https://telegram.org/js/telegram-web-app.js](https://telegram.org/js/telegram-web-app.js).
+
+HAPTICS: Call window.Telegram.WebApp.HapticFeedback for all user actions (impactOccurred, notificationOccurred).
+
+USER PROFILE: Extract username, photo_url, and ID safely from Telegram.WebApp.initDataUnsafe.
+
+LATENCY CALIBRATION: Read/Save user audio_offset (-200ms to +200ms) to Telegram.WebApp.CloudStorage.
+
+VIRALITY: Generate a canvas-based score share card formatted 9:16 for Telegram Stories on level completion.
+
+8. CODE STRUCTURE & STYLE REQUIREMENTS
+Keep code clean, modular, and well-commented in Russian or English.
+
+Use ES6+ JavaScript. Organize code into lightweight modules (e.g., AudioEngine.js, RenderEngine.js, InputHandler.js, TelegramSDK.js, Game.js).
+
+Always handle edge cases: window resize, tab visibility change (document.hidden -> pause audio context), low frame rates (delta time capping).
