@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Rhythm Game</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+  <div id="app">
+    <!-- Главное меню -->
+    <section id="menu" class="screen active">
+      <header class="menu-header">
+        <h1>Rhythm Game</h1>
+        <p class="menu-subtitle">Telegram Hyper-Casual</p>
+      </header>
+
+      <div class="menu-section">
+        <h2>Выбор трека</h2>
+        <ul id="track-list" class="track-list">
+          <li>
+            <button type="button" class="track-btn selected" data-track="audio/slow60.mp3">
+              Slow 60 BPM
+            </button>
+          </li>
+          <li>
+            <button type="button" class="track-btn" data-track="audio/Neon Horizon.mp3">
+              Neon Horizon
+            </button>
+          </li>
+          <li>
+            <button type="button" class="track-btn" data-track="audio/Neon Pulse.mp3">
+              Neon Pulse
+            </button>
+          </li>
+          <li>
+            <button type="button" class="track-btn" data-track="audio/Neon Velocity.mp3">
+              Neon Velocity
+            </button>
+          </li>
+        </ul>
+        <p id="server-hint" class="server-hint"></p>
+      </div>
+
+      <div class="menu-section">
+        <label class="upload-btn" for="custom-track-input">
+          Загрузить свой трек
+        </label>
+        <input id="custom-track-input" type="file" accept="audio/*" hidden>
+        <p id="custom-track-name" class="custom-track-name"></p>
+      </div>
+
+      <button id="start-btn" type="button" class="primary-btn">Играть</button>
+    </section>
+
+    <!-- Игровой экран -->
+    <section id="game-screen" class="screen">
+      <!-- HUD в Spawn Zone (0–15% высоты) -->
+      <div id="hud-top" class="hud-top">
+        <div class="hud-row">
+          <span id="score-display">0</span>
+          <span id="combo-display">x0</span>
+        </div>
+        <div id="judgment-display" class="judgment-display"></div>
+      </div>
+
+      <canvas id="game-canvas"></canvas>
+
+      <!-- HP в Touch Target Zone (70–100%) -->
+      <div id="hud-bottom" class="hud-bottom">
+        <div class="hp-label">HP</div>
+        <div class="hp-bar-outer">
+          <div id="hp-bar-fill" class="hp-bar-fill"></div>
+        </div>
+        <div id="shield-indicator" class="shield-indicator">🛡 Novice Shield</div>
+      </div>
+
+      <button id="back-btn" type="button" class="back-btn" aria-label="Назад в меню">✕</button>
+    </section>
+
+    <!-- Экран Game Over -->
+    <section id="result-screen" class="screen">
+      <h2>Game Over</h2>
+      <p class="result-score">Score: <span id="final-score">0</span></p>
+      <p class="result-combo">Max Combo: <span id="final-combo">0</span></p>
+      <button id="retry-btn" type="button" class="primary-btn">Ещё раз</button>
+      <button id="menu-btn" type="button" class="secondary-btn">Меню</button>
+    </section>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
