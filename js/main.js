@@ -58,7 +58,7 @@ class Game {
     this.ui = new Ui({
       onModeChange: (id) => this._selectMode(id),
       onDifficultyChange: (key) => { this.difficulty = key; this._syncMenu(); },
-      onTrackChange: (id) => { this.trackId = id; this.customFile = null; this._syncMenu(); },
+      onTrackChange: (id) => { this.trackId = id; this.customFile = null; this._warmTrack(); this._syncMenu(); },
       onCustomFile: (file) => { this.customFile = file; this._syncMenu(); },
       onOffsetChange: (ms) => this._setOffset(ms),
       onLanguageChange: (code) => this._setLanguage(code),
@@ -84,6 +84,7 @@ class Game {
     applyStaticText();
     this._ready = this._loadSettings();
     this._syncMenu();
+    this._warmTrack();
     this.ui.showScreen('menu');
   }
 
@@ -114,7 +115,14 @@ class Game {
       this.trackId = tracks[0].id;
     }
     this._syncMenu();
+    this._warmTrack();
     if (toast) this.ui.showToast(t(toast));
+  }
+
+  _warmTrack() {
+    if (this.customFile) return;
+    const track = TRACKS.find((item) => item.id === this.trackId);
+    if (track?.url) this.audio.prefetch(track.url);
   }
 
   _setOffset(ms) {
@@ -137,6 +145,7 @@ class Game {
     const tracks = activeTracks();
     const suitable = tracks.find((track) => track.mood === id) ?? tracks[0];
     if (suitable && !this.customFile) this.trackId = suitable.id;
+    this._warmTrack();
     this._syncMenu();
   }
 
@@ -228,6 +237,7 @@ class Game {
       if (this.state !== 'playing') return;
       if (event.target.closest('button')) return;
       event.preventDefault();
+      this.ui.dismissCoach(this.modeId);
       try { field.setPointerCapture(event.pointerId); } catch (_) { /* не критично */ }
       const { x, y } = this._localPoint(event);
       const slot = this.pointers.down(event.pointerId, x, y, this.audio.time);

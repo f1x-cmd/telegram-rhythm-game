@@ -36,10 +36,12 @@ export class RelaxMode {
     this.targetX = 0;
     this.targetY = 0;
     this.pointerDown = false;
-
+    this.awaitingTouch = true;
     this.finished = false;
     this.hue = 0;
     this._lastRibbonAt = 0;
+    this._dash = [7, 9];
+    this._solid = [];
   }
 
   get barValue() {
@@ -93,7 +95,9 @@ export class RelaxMode {
     this.chainsDone = 0;
     this.stillsDone = 0;
     this.finished = false;
-    this.collectorAlpha = 0;
+    this.collectorAlpha = 0.55;
+    this.pointerDown = false;
+    this.awaitingTouch = true;
 
     const { width, height } = this.game;
     this.collectorX = width / 2;
@@ -114,6 +118,7 @@ export class RelaxMode {
 
   onDown(slot) {
     this.pointerDown = true;
+    this.awaitingTouch = false;
     this.targetX = slot.x;
     this.targetY = slot.y;
     this.collectorX = slot.x;
@@ -495,11 +500,22 @@ export class RelaxMode {
     if (this.collectorAlpha <= 0.02) return;
     const radius = w * RELAX.collectorRadius;
     const color = this.flowActive ? COLORS.bloom : COLORS.orb;
-    const pulse = 1 + Math.sin(now * 4) * 0.05;
+    const pulse = 1 + Math.sin(now * 4) * (this.awaitingTouch ? 0.12 : 0.05);
 
     ctx.globalCompositeOperation = 'lighter';
     this.game.fx.drawGlow(ctx, this.collectorX, this.collectorY, radius * 1.5 * pulse, color, this.collectorAlpha * 0.5);
     ctx.globalCompositeOperation = 'source-over';
+
+    if (this.awaitingTouch) {
+      ctx.globalAlpha = 0.45 + Math.sin(now * 3) * 0.2;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.setLineDash(this._dash);
+      ctx.beginPath();
+      ctx.arc(this.collectorX, this.collectorY, radius * (1.18 + Math.sin(now * 2.2) * 0.08), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash(this._solid);
+    }
 
     ctx.globalAlpha = this.collectorAlpha * 0.8;
     ctx.strokeStyle = color;

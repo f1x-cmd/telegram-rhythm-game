@@ -27,11 +27,6 @@
         <p class="menu-subtitle" data-i18n="app.subtitle"></p>
       </header>
 
-      <div class="lang-row">
-        <label class="lang-label" for="lang-select" data-i18n="section.language"></label>
-        <select id="lang-select" class="lang-select"></select>
-      </div>
-
       <p id="ops-banner" class="ops-banner hidden"></p>
 
       <div class="daily-card">
@@ -53,6 +48,9 @@
         <div id="difficulty-list" class="chip-row"></div>
       </div>
 
+      <p id="menu-error" class="menu-error"></p>
+      <button id="play-btn" type="button" class="primary-btn"></button>
+
       <div class="menu-section">
         <h2 data-i18n="section.track"></h2>
         <div id="track-list" class="track-list"></div>
@@ -63,16 +61,17 @@
       </div>
 
       <details class="menu-section settings">
-        <summary data-i18n="menu.calibration"></summary>
+        <summary data-i18n="menu.settings"></summary>
+        <div class="lang-row">
+          <label class="lang-label" for="lang-select" data-i18n="section.language"></label>
+          <select id="lang-select" class="lang-select"></select>
+        </div>
         <div class="offset-row">
           <input id="offset-input" type="range" min="-200" max="200" step="5" value="0">
           <span id="offset-value" class="offset-value">0</span>
         </div>
         <p class="hint" data-i18n="menu.calibrationHint"></p>
       </details>
-
-      <p id="menu-error" class="menu-error"></p>
-      <button id="play-btn" type="button" class="primary-btn"></button>
     </section>
 
     <!-- ─── Игра ─────────────────────────────────────────────────────────── -->
@@ -91,6 +90,7 @@
 
       <!-- Touch Target Zone: 70–100% -->
       <div class="hud-bottom">
+        <p id="coach" class="coach hidden"></p>
         <div id="shield" class="shield hidden"></div>
         <div class="bar-row">
           <span id="bar-label" class="bar-label">FLOW</span>

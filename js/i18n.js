@@ -1472,6 +1472,83 @@ Object.assign(DICT.ru, {
   'ops.noTracks': 'Сейчас нет доступных треков.',
 });
 
+const UX = {
+  en: {
+    'menu.settings': 'Language & feel',
+    'coach.relax': 'Hold and drag — catch the lights on the line',
+    'coach.drive': 'Tap the lane when a note hits the line',
+  },
+  ru: {
+    'menu.settings': 'Язык и ощущение',
+    'coach.relax': 'Зажмите и ведите — ловите огни на линии',
+    'coach.drive': 'Нажмите дорожку, когда нота коснётся линии',
+  },
+  uk: {
+    'menu.settings': 'Мова і відчуття',
+    'coach.relax': 'Утримуйте й ведіть — ловіть світло на лінії',
+    'coach.drive': 'Натисніть доріжку, коли нота торкнеться лінії',
+  },
+  es: {
+    'menu.settings': 'Idioma y calibración',
+    'coach.relax': 'Mantén y arrastra: atrapa las luces en la línea',
+    'coach.drive': 'Toca el carril cuando la nota llegue a la línea',
+  },
+  pt: {
+    'menu.settings': 'Idioma e calibragem',
+    'coach.relax': 'Segure e arraste — pegue as luzes na linha',
+    'coach.drive': 'Toque a faixa quando a nota chegar na linha',
+  },
+  de: {
+    'menu.settings': 'Sprache & Gefühl',
+    'coach.relax': 'Halten und ziehen — fange die Lichter auf der Linie',
+    'coach.drive': 'Tippe die Spur, wenn die Note die Linie trifft',
+  },
+  fr: {
+    'menu.settings': 'Langue et ressenti',
+    'coach.relax': 'Restez appuyé et glissez — attrapez les lumières',
+    'coach.drive': 'Touchez la voie quand la note atteint la ligne',
+  },
+  it: {
+    'menu.settings': 'Lingua e feeling',
+    'coach.relax': 'Tieni premuto e trascina — prendi le luci sulla linea',
+    'coach.drive': 'Tocca la corsia quando la nota tocca la linea',
+  },
+  pl: {
+    'menu.settings': 'Język i wyczucie',
+    'coach.relax': 'Przytrzymaj i przeciągnij — łap światła na linii',
+    'coach.drive': 'Dotknij toru, gdy nuta trafi w linię',
+  },
+  tr: {
+    'menu.settings': 'Dil ve his',
+    'coach.relax': 'Basılı tut ve kaydır — ışıkları çizgide yakala',
+    'coach.drive': 'Nota çizgiye gelince şeride dokun',
+  },
+  id: {
+    'menu.settings': 'Bahasa & rasa',
+    'coach.relax': 'Tahan dan geser — tangkap cahaya di garis',
+    'coach.drive': 'Ketuk lajur saat not menyentuh garis',
+  },
+  hi: {
+    'menu.settings': 'भाषा और फील',
+    'coach.relax': 'दबाकर खींचें — लाइन पर रोशनियाँ पकड़ें',
+    'coach.drive': 'नोट लाइन पर आए तो लेन टैप करें',
+  },
+  ar: {
+    'menu.settings': 'اللغة والإحساس',
+    'coach.relax': 'اضغط واسحب — التقط الأضواء على الخط',
+    'coach.drive': 'المس المسار عندما تلمس النغمة الخط',
+  },
+  zh: {
+    'menu.settings': '语言与手感',
+    'coach.relax': '按住拖动——在判定线上接住光点',
+    'coach.drive': '音符碰到判定线时点按对应轨道',
+  },
+};
+
+for (const [lang, extra] of Object.entries(UX)) {
+  Object.assign(DICT[lang], extra);
+}
+
 /** 'pt-BR' → 'pt', 'zh-Hans-CN' → 'zh'; неизвестный код → null. */
 function normalize(code) {
   if (!code) return null;

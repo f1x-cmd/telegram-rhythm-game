@@ -24,6 +24,8 @@ export class AudioEngine {
     this.offset = 0;        // калибровка задержки, секунды
     this.bands = { bass: 0, mid: 0, high: 0 };
 
+    this._cache = new Map();
+    this._inflight = new Map();
     this._noiseBuffer = null;
     this._chimeStep = 0;
   }
@@ -88,15 +90,41 @@ export class AudioEngine {
     return this.musicStartTime + songTime + this.offset;
   }
 
+  /** Предзагрузка MP3 в кэш, чтобы первая партия уложилась в TTFT < 3.5 с. */
+  prefetch(url) {
+    if (!url || this._cache.has(url) || this._inflight.has(url)) return;
+    if (typeof window !== 'undefined' && window.location.protocol === 'file:') return;
+    const job = fetch(encodeURI(url))
+      .then((response) => {
+        if (!response.ok) throw new Error('prefetch');
+        return response.arrayBuffer();
+      })
+      .then((raw) => {
+        this._cache.set(url, raw);
+        this._inflight.delete(url);
+      })
+      .catch(() => {
+        this._inflight.delete(url);
+      });
+    this._inflight.set(url, job);
+  }
+
   async loadUrl(url) {
     await this.init();
     if (window.location.protocol === 'file:') {
       throw new Error(t('error.server'));
     }
-    const response = await fetch(encodeURI(url));
-    if (!response.ok) throw new Error(t('error.file', { url, status: response.status }));
-    const raw = await response.arrayBuffer();
-    this.buffer = await this.ctx.decodeAudioData(raw);
+    if (this._inflight.has(url)) {
+      try { await this._inflight.get(url); } catch (_) { /* грузим заново ниже */ }
+    }
+    let raw = this._cache.get(url);
+    if (!raw) {
+      const response = await fetch(encodeURI(url));
+      if (!response.ok) throw new Error(t('error.file', { url, status: response.status }));
+      raw = await response.arrayBuffer();
+      this._cache.set(url, raw);
+    }
+    this.buffer = await this.ctx.decodeAudioData(raw.slice(0));
     return this.buffer;
   }
 

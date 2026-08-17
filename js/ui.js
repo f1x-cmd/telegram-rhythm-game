@@ -4,7 +4,7 @@
  */
 
 import { MODES, DRIVE_DIFFICULTY, rankFor } from './config.js';
-import { shareResult, getUser, openDonate } from './telegram.js';
+import { shareResult, getUser, openDonate, peekLocal, storage } from './telegram.js';
 import { LANGUAGES, t, formatNumber, languagePreference, applyStaticText, isRtl } from './i18n.js';
 import { donateRuntime, liveops, activeTracks, isBanned } from './liveops.js';
 import { me } from './social.js';
@@ -45,6 +45,7 @@ export class Ui {
       opsBanner: $('#ops-banner'),
       playBtn: $('#play-btn'),
       menuError: $('#menu-error'),
+      coach: $('#coach'),
 
       loading: $('#loading'),
       loadingText: $('#loading-text'),
@@ -126,6 +127,7 @@ export class Ui {
   _buildMenu() {
     const modeHtml = Object.values(MODES).map((mode) => `
       <button type="button" class="mode-card" data-mode="${mode.id}" style="--accent: ${mode.accent}">
+        <span class="mode-glyph" aria-hidden="true"></span>
         <span class="mode-title">${mode.title}</span>
         <span class="mode-subtitle">${t(`mode.${mode.id}.subtitle`)}</span>
       </button>
@@ -454,6 +456,26 @@ export class Ui {
     this._lastCombo = -1;
     this._lastBar = -1;
     this._lastShield = null;
+    this.showCoach(modeId);
+  }
+
+  showCoach(modeId) {
+    if (!this.el.coach) return;
+    const seen = (peekLocal('ux_coach_v1') || '').split(',').filter(Boolean);
+    if (seen.includes(modeId)) {
+      this.el.coach.classList.add('hidden');
+      return;
+    }
+    this.el.coach.textContent = t(`coach.${modeId}`);
+    this.el.coach.classList.remove('hidden');
+  }
+
+  dismissCoach(modeId) {
+    if (!this.el.coach || this.el.coach.classList.contains('hidden')) return;
+    this.el.coach.classList.add('hidden');
+    const seen = new Set((peekLocal('ux_coach_v1') || '').split(',').filter(Boolean));
+    seen.add(modeId);
+    storage.set('ux_coach_v1', [...seen].join(','));
   }
 
   /** Синхронизация с часами AudioContext в начале кадра. */

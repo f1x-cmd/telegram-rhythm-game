@@ -84,9 +84,8 @@ body[data-mode='relax'] { --accent: #6FE9FF; }
 .lang-row {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 10px;
-  margin-top: -8px;
 }
 
 .lang-label {
@@ -139,8 +138,8 @@ body[data-mode='relax'] { --accent: #6FE9FF; }
 .daily-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 14px 16px;
+  gap: 6px;
+  padding: 10px 14px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--panel);
@@ -196,7 +195,7 @@ body[data-mode='relax'] { --accent: #6FE9FF; }
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 18px 14px;
+  padding: 16px 12px 14px;
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--panel);
@@ -204,6 +203,23 @@ body[data-mode='relax'] { --accent: #6FE9FF; }
   text-align: left;
   cursor: pointer;
   transition: border-color 0.18s, background 0.18s, transform 0.12s;
+}
+
+.mode-glyph {
+  width: 28px;
+  height: 28px;
+  margin-bottom: 2px;
+  border-radius: 50%;
+  border: 2px dashed currentColor;
+  opacity: 0.85;
+}
+
+.mode-card[data-mode='drive'] .mode-glyph {
+  border: none;
+  border-radius: 6px;
+  background:
+    linear-gradient(90deg, #FF007A 0 18%, transparent 18% 27%, #FF007A 27% 45%, transparent 45% 54%, #FF007A 54% 72%, transparent 72% 81%, #FF007A 81% 100%);
+  opacity: 0.9;
 }
 
 .mode-card:active { transform: scale(0.98); }
@@ -224,6 +240,7 @@ body[data-mode='relax'] { --accent: #6FE9FF; }
 }
 
 .mode-card[data-mode='relax'] .mode-title { color: #6FE9FF; }
+.mode-card[data-mode='relax'] .mode-glyph { color: #6FE9FF; }
 .mode-card[data-mode='drive'] .mode-title { color: #FF007A; }
 
 .mode-subtitle {
@@ -320,6 +337,12 @@ body[data-mode='relax'] { --accent: #6FE9FF; }
 }
 
 /* Настройки */
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .settings summary {
   font-size: 0.7rem;
   text-transform: uppercase;
@@ -379,13 +402,13 @@ body[data-mode='relax'] { --accent: #6FE9FF; }
 .primary-btn:active { opacity: 0.88; }
 
 #menu #play-btn {
-  position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(min(100vw, 520px) - 40px);
+  position: sticky;
+  left: auto;
+  transform: none;
+  width: 100%;
   bottom: calc(72px + env(safe-area-inset-bottom));
   z-index: 32;
-  margin-top: 0;
+  margin-top: 4px;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
 }
 
@@ -546,6 +569,20 @@ body[data-mode='relax'] { --accent: #6FE9FF; }
   font-size: 0.68rem;
   letter-spacing: 0.08em;
   color: var(--accent);
+}
+
+.coach {
+  margin: 0 0 4px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(8, 8, 16, 0.72);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  color: #f2f4ff;
+  font-size: 0.82rem;
+  font-weight: 650;
+  line-height: 1.35;
+  text-align: center;
+  pointer-events: none;
 }
 
 .bar-row {
@@ -725,9 +762,22 @@ body[data-mode='relax'] { --accent: #6FE9FF; }
   border-radius: 12px;
 }
 
-.result-actions {
-  display: flex;
-  gap: 10px;
+#result-screen #retry-btn {
+  position: sticky;
+  bottom: 8px;
+  z-index: 2;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+@media (max-height: 720px) {
+  .menu-subtitle { display: none; }
+  .menu-header h1 { font-size: 1.55rem; letter-spacing: 0.16em; }
+  #menu { gap: 12px; }
+  .profile-chip { padding: 8px 10px; }
+  .daily-card { padding: 8px 12px; gap: 4px; }
+  .daily-title { font-size: 0.88rem; }
+  .mode-card { padding: 12px 10px; }
+  .mode-glyph { width: 22px; height: 22px; }
 }
 
 body[data-screen='game'] .app-nav,
