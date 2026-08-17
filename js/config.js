@@ -50,9 +50,12 @@ export const SHIELD_TIME = 15;      // секунд неуязвимости н�
 export const SHIELD_MISSES = 3;     // первые промахи без урона
 export const AVOID_PENALTY = -15;   // касание красной ноты
 export const SWIPE_MIN_PX = 30;
-export const SWIPE_WINDOW = 0.16;   // секунд на завершение свайпа
+export const SWIPE_WINDOW = 0.10;   // спецификация: свайп за ≤ 100 ms
 export const HOLD_TICK = 0.05;      // проверка удержания каждые 50 мс
 export const COMBO_SHAKE = [10, 25, 50];
+
+/** Лимит пользовательского аудио (~20 МБ), чтобы decode не подвисал на мобилках. */
+export const CUSTOM_AUDIO_MAX_BYTES = 20 * 1024 * 1024;
 
 /** Настройки сложности режима DRIVE. Названия — в i18n (ключи diff.*). */
 export const DRIVE_DIFFICULTY = {

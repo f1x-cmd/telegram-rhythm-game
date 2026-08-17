@@ -790,7 +790,13 @@ body[data-mode='relax'] { --accent: #6FE9FF; }
 
 .result-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
+}
+
+.result-actions .secondary-btn {
+  flex: 1 1 calc(50% - 5px);
+  min-width: 7.5rem;
 }
 
 #result-screen #retry-btn {

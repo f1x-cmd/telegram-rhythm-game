@@ -4,10 +4,11 @@
  */
 
 import { MODES, DRIVE_DIFFICULTY, rankFor } from './config.js';
-import { shareResult, getUser, openDonate, peekLocal, storage } from './telegram.js';
+import { shareResult, getUser, openDonate, peekLocal, storage, showBackButton } from './telegram.js';
 import { LANGUAGES, t, formatNumber, languagePreference, applyStaticText, isRtl } from './i18n.js';
 import { donateRuntime, liveops, activeTracks, isBanned, activeEvent } from './liveops.js';
 import { me } from './social.js';
+import { buildInvite } from './social.js';
 
 const $ = (selector) => document.querySelector(selector);
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => (
@@ -70,6 +71,7 @@ export class Ui {
       resultDaily: $('#result-daily'),
       shareImage: $('#share-image'),
       shareBtn: $('#share-btn'),
+      challengeResultBtn: $('#challenge-result-btn'),
       downloadBtn: $('#download-btn'),
       retryBtn: $('#retry-btn'),
       menuBtn: $('#menu-btn'),
@@ -115,6 +117,7 @@ export class Ui {
     this._shareUrl = null;
     this._board = 'global';
     this._toastHideAt = 0;
+    this._lastResultScore = 0;
 
     this.hud = {
       showJudgment: (text, cls) => this.showJudgment(text, cls),
@@ -250,10 +253,15 @@ export class Ui {
 
     this.el.shareBtn.addEventListener('click', () => {
       const text = this.el.shareBtn.dataset.text || 'Rhythm Game';
-      if (!shareResult(text)) {
-        navigator.clipboard?.writeText(text);
+      const url = this.el.shareBtn.dataset.url || '';
+      if (!shareResult(text, url || undefined)) {
+        navigator.clipboard?.writeText(url ? `${text}\n${url}` : text);
         this.el.shareBtn.textContent = t('result.copied');
       }
+    });
+
+    this.el.challengeResultBtn?.addEventListener('click', () => {
+      this.handlers.onChallengeResult?.(this._lastResultScore);
     });
 
     this.el.downloadBtn.addEventListener('click', () => {
@@ -455,6 +463,10 @@ export class Ui {
     this.el.menuError.textContent = message || '';
   }
 
+  resetFileInput() {
+    if (this.el.fileInput) this.el.fileInput.value = '';
+  }
+
   // ── Экраны ───────────────────────────────────────────────────────────────
 
   showScreen(name) {
@@ -465,6 +477,7 @@ export class Ui {
     for (const button of this.el.appNav.querySelectorAll('[data-nav]')) {
       button.classList.toggle('selected', button.dataset.nav === (name === 'profile' ? 'profile' : 'menu'));
     }
+    showBackButton(name === 'game' || name === 'result' || name === 'profile');
   }
 
   setLoading(text) {
@@ -599,8 +612,12 @@ export class Ui {
       score: formatNumber(stats.score),
       rank: rank.label,
     });
-    this.el.shareBtn.dataset.text = text;
+    const pack = buildInvite('challenge', { score: stats.score });
+    const shareBody = pack.url ? `${text}\n${pack.url}` : `${text}\n${t('profile.inviteCode', { code: pack.payload })}`;
+    this.el.shareBtn.dataset.text = shareBody;
+    this.el.shareBtn.dataset.url = pack.url || '';
     this.el.shareBtn.textContent = t('result.share');
+    this._lastResultScore = stats.score;
 
     this._shareUrl = this._buildShareCard(stats, meta, rank);
     this.el.shareImage.src = this._shareUrl;

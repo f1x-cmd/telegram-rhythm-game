@@ -53,7 +53,19 @@ export async function loadCareer() {
 }
 
 export function career() {
+  normalizeStreak();
   return state;
+}
+
+function normalizeStreak() {
+  const date = today();
+  if (!state.lastPlayDate) return;
+  if (state.lastPlayDate !== date && state.lastPlayDate !== yesterday()) {
+    if (state.streak !== 0) {
+      state.streak = 0;
+      storage.set(KEY, JSON.stringify(state));
+    }
+  }
 }
 
 /**

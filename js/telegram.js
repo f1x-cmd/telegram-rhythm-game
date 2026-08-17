@@ -27,6 +27,22 @@ export function initTelegram() {
   } catch (_) { /* старая версия клиента */ }
 }
 
+/** Кнопка «Назад» Telegram — стандарт TMA для выхода из партии. */
+export function showBackButton(visible) {
+  if (!tg?.BackButton) return;
+  try {
+    if (visible) tg.BackButton.show();
+    else tg.BackButton.hide();
+  } catch (_) { /* */ }
+}
+
+export function onBackButton(handler) {
+  if (!tg?.BackButton?.onClick) return;
+  try {
+    tg.BackButton.onClick(handler);
+  } catch (_) { /* */ }
+}
+
 /**
  * Тактильный отклик.
  * @param {'light'|'medium'|'heavy'|'soft'|'rigid'|'error'|'success'|'warning'|'selection'} kind

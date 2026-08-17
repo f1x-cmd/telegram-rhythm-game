@@ -3,8 +3,8 @@
  * Игровой цикл целиком опирается на AudioContext.currentTime.
  */
 
-import { MODES, TRACKS, RELAX, DRIVE_DIFFICULTY } from './config.js';
-import { initTelegram, storage } from './telegram.js';
+import { MODES, TRACKS, RELAX, DRIVE_DIFFICULTY, CUSTOM_AUDIO_MAX_BYTES } from './config.js';
+import { initTelegram, storage, onBackButton } from './telegram.js';
 import { AudioEngine } from './audio-engine.js';
 import { analyzeAudio, buildDriveChart, buildRelaxChart } from './analysis.js';
 import { createPool, createNote } from './pools.js';
@@ -19,7 +19,7 @@ import { t, loadLanguage, setLanguage, applyStaticText } from './i18n.js';
 import { loadCareer, addCareer } from './career.js';
 import {
   loadSocial, snapshot as socialSnapshot, shareInvite, createClan, joinClan,
-  leaveClan, takeToast, syncSelfScore, me,
+  leaveClan, takeToast, refreshStartParam, syncSelfScore, me,
 } from './social.js';
 import {
   loadLiveOps, liveops, activeTracks, scoreMultiplier, shieldConfig, isBanned,
@@ -59,7 +59,7 @@ class Game {
       onModeChange: (id) => this._selectMode(id),
       onDifficultyChange: (key) => { this.difficulty = key; this._syncMenu(); },
       onTrackChange: (id) => { this.trackId = id; this.customFile = null; this._warmTrack(); this._syncMenu(); },
-      onCustomFile: (file) => { this.customFile = file; this._syncMenu(); },
+      onCustomFile: (file) => this._setCustomFile(file),
       onOffsetChange: (ms) => this._setOffset(ms),
       onLanguageChange: (code) => this._setLanguage(code),
       onPlay: () => this.start(),
@@ -73,6 +73,7 @@ class Game {
       onJoinClan: (code) => this._joinClan(code),
       onLeaveClan: () => this._leaveClan(),
       onDonate: (stars) => logEvent('donate', { stars }),
+      onChallengeResult: (score) => this._challengeResult(score),
     });
     this.hud = this.ui.hud;
 
@@ -87,6 +88,22 @@ class Game {
     this._syncMenu();
     this._warmTrack();
     this.ui.showScreen('menu');
+
+    onBackButton(() => {
+      if (this.state === 'playing' || this.state === 'loading') this._toMenu();
+      else if (this.state === 'result' || this.state === 'profile') this._toMenu();
+    });
+  }
+
+  _setCustomFile(file) {
+    if (file.size > CUSTOM_AUDIO_MAX_BYTES) {
+      this.ui.showError(t('error.fileTooBig'));
+      this.ui.resetFileInput();
+      return;
+    }
+    this.customFile = file;
+    this.ui.showError('');
+    this._syncMenu();
   }
 
   // ── Настройки и меню ─────────────────────────────────────────────────────
@@ -122,9 +139,9 @@ class Game {
 
   _warmTrack() {
     if (this.customFile) return;
-    const catalog = activeTracks();
-    const track = catalog.find((item) => item.id === this.trackId) ?? catalog[0];
-    if (track?.url) this.audio.prefetch(track.url);
+    for (const track of activeTracks()) {
+      if (track?.url) this.audio.prefetch(track.url);
+    }
   }
 
   _setOffset(ms) {
@@ -210,6 +227,12 @@ class Game {
     this.ui.syncProfile(socialSnapshot(), 'clan');
   }
 
+  _challengeResult(score) {
+    const result = shareInvite('challenge', { score });
+    logEvent('invite', { kind: 'challenge', score });
+    if (!result.shared) this.ui.showToast(t('profile.copied'));
+  }
+
   _toMenu() {
     this.abort();
     this.ui.showScreen('menu');
@@ -228,7 +251,11 @@ class Game {
         cancelAnimationFrame(this._rafId);
         this._rafId = 0;
       } else {
-        loadLiveOps({ force: true }).then(() => this._syncMenu());
+        loadLiveOps({ force: true }).then(() => {
+          const toast = refreshStartParam();
+          if (toast) this.ui.showToast(t(toast));
+          this._syncMenu();
+        });
         if (this.state === 'playing') {
           this.audio.init().then(() => {
             this._lastTime = this.audio.time;

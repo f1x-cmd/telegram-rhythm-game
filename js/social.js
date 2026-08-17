@@ -20,6 +20,7 @@ let state = {
 };
 let loaded = false;
 let pendingToast = '';
+let lastStartParam = '';
 
 function persist() {
   storage.set(KEY, JSON.stringify(state));
@@ -110,29 +111,36 @@ function appUrl(startParam) {
   return `https://t.me/${TELEGRAM_APP.bot}/${TELEGRAM_APP.app}${query}`;
 }
 
-export function invitePayload(kind = 'friend') {
+export function invitePayload(kind = 'friend', score = null) {
   const player = selfEntry();
+  const value = Math.max(0, Number(score ?? player.score) || 0);
   if (kind === 'clan' && state.clan) {
-    return `k${state.clan.code}_${player.id}_${player.score}`;
+    return `k${state.clan.code}_${player.id}_${value}`;
   }
   if (kind === 'challenge') {
-    return `c${player.id}_${player.score}`;
+    return `c${player.id}_${value}`;
   }
-  return `f${player.id}_${player.score}`;
+  return `f${player.id}_${value}`;
 }
 
-export function shareInvite(kind = 'friend') {
-  const payload = invitePayload(kind);
+export function buildInvite(kind = 'friend', options = {}) {
+  const score = options.score ?? selfEntry().score;
+  const payload = invitePayload(kind, score);
   const url = appUrl(payload);
   const text = kind === 'clan' && state.clan
-    ? t('profile.shareClanText', { clan: state.clan.name, code: state.clan.code, score: formatNumber(selfEntry().score) })
+    ? t('profile.shareClanText', { clan: state.clan.name, code: state.clan.code, score: formatNumber(score) })
     : kind === 'challenge'
-      ? t('profile.challengeText', { name: me().name, score: formatNumber(selfEntry().score) })
-      : t('profile.inviteText', { name: me().name, score: formatNumber(selfEntry().score) });
+      ? t('profile.challengeText', { name: me().name, score: formatNumber(score) })
+      : t('profile.inviteText', { name: me().name, score: formatNumber(score) });
 
   const body = url ? text : `${text}\n${t('profile.inviteCode', { code: payload })}`;
-  const shared = shareResult(body, url || undefined);
-  return { shared, payload, url };
+  return { payload, url, text: body };
+}
+
+export function shareInvite(kind = 'friend', options = {}) {
+  const pack = buildInvite(kind, options);
+  const shared = shareResult(pack.text, pack.url || undefined);
+  return { ...pack, shared };
 }
 
 export async function loadSocial() {
@@ -158,6 +166,8 @@ export async function loadSocial() {
 
 function applyStartParam(raw) {
   const param = String(raw).trim();
+  if (!param || param === lastStartParam) return;
+  lastStartParam = param;
   const self = me();
 
   let match = param.match(/^f([A-Za-z0-9]+)(?:_(\d+))?$/);
@@ -199,6 +209,13 @@ export function takeToast() {
   const key = pendingToast;
   pendingToast = '';
   return key;
+}
+
+/** Повторная обработка startapp при возврате в Mini App. */
+export function refreshStartParam() {
+  const start = getStartParam();
+  if (start) applyStartParam(start);
+  return takeToast();
 }
 
 /** Обновляет свою строку в клане после партии. */
