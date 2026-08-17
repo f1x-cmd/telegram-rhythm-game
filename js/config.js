@@ -135,3 +135,63 @@ export function rankFor(accuracy) {
 export function comboMultiplier(combo) {
   return Math.min(1 + Math.floor(combo / 10) * 0.1, 4.0);
 }
+
+/**
+ * Ссылка Mini App для инвайтов. Заполните bot и app — тогда шаринг
+ * откроет t.me/bot/app?startapp=…; пока пусто, копируется код приглашения.
+ */
+export const TELEGRAM_APP = {
+  bot: '',
+  app: 'rhythm',
+};
+
+/**
+ * Донат в кабинете. invoice[stars] — ссылка createInvoiceLink (Telegram Stars),
+ * url — запасной t.me/tribute или бот, {stars} подставляется в шаблон.
+ */
+export const DONATE = {
+  packs: [50, 150, 500],
+  invoices: {},
+  url: '',
+  bot: '',
+};
+
+/** Лиги кабинета по сумме очков за всё время. */
+export const LEAGUES = [
+  { id: 'master',  min: 1500000, color: '#FF007A' },
+  { id: 'diamond', min: 600000,  color: '#6FE9FF' },
+  { id: 'gold',    min: 180000,  color: '#FFD98C' },
+  { id: 'silver',  min: 40000,   color: '#C0C7D6' },
+  { id: 'bronze',  min: 0,       color: '#C47A4A' },
+];
+
+/** Титул игрока по сумме очков. */
+export const TITLES = [
+  { id: 'legend', min: 1200000 },
+  { id: 'rhythm', min: 350000 },
+  { id: 'neon',   min: 90000 },
+  { id: 'pulse',  min: 20000 },
+  { id: 'rookie', min: 0 },
+];
+
+export function leagueFor(totalScore) {
+  for (const league of LEAGUES) {
+    if (totalScore >= league.min) return league;
+  }
+  return LEAGUES[LEAGUES.length - 1];
+}
+
+export function titleFor(totalScore) {
+  for (const title of TITLES) {
+    if (totalScore >= title.min) return title;
+  }
+  return TITLES[TITLES.length - 1];
+}
+
+/** Рейтинг навыка: растёт от суммы очков, партий и лучшего комбо. */
+export function skillRating(career) {
+  const score = career.totalScore || 0;
+  const plays = career.plays || 0;
+  const combo = career.maxCombo || 0;
+  return Math.max(800, Math.round(800 + Math.sqrt(score) * 2.4 + plays * 4 + combo * 0.6));
+}

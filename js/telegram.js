@@ -43,13 +43,26 @@ export function haptic(kind) {
 }
 
 export function getUser() {
-  const user = tg?.initDataUnsafe?.user;
-  if (!user) return { id: null, name: 'Player', photo: null };
+  const user = (tg ?? sdk)?.initDataUnsafe?.user;
+  if (!user) return { id: null, name: 'Player', photo: null, username: '' };
   return {
     id: user.id ?? null,
     name: user.first_name || user.username || 'Player',
     photo: user.photo_url ?? null,
+    username: user.username ? `@${user.username}` : '',
   };
+}
+
+/** startapp-параметр: из initData или из hash, которым SDK наполняет Mini App. */
+export function getStartParam() {
+  const fromInit = (tg ?? sdk)?.initDataUnsafe?.start_param;
+  if (fromInit) return String(fromInit);
+  try {
+    const hash = window.location.hash || '';
+    const match = hash.match(/tgWebAppStartParam=([^&]+)/);
+    if (match) return decodeURIComponent(match[1]);
+  } catch (_) { /* битый hash */ }
+  return null;
 }
 
 /** Код языка из настроек Telegram, например 'ru' или 'pt-br'. */
@@ -107,13 +120,47 @@ export const storage = {
 };
 
 /** Попытка поделиться результатом (доступно только внутри Telegram). */
-export function shareResult(text) {
-  if (!tg) return false;
+export function shareResult(text, url) {
+  if (!tg) {
+    try { navigator.clipboard?.writeText(url ? `${text}\n${url}` : text); } catch (_) { /* */ }
+    return false;
+  }
   try {
-    const url = `https://t.me/share/url?url=${encodeURIComponent('https://t.me')}&text=${encodeURIComponent(text)}`;
-    tg.openTelegramLink?.(url);
+    const target = url || 'https://t.me';
+    const share = `https://t.me/share/url?url=${encodeURIComponent(target)}&text=${encodeURIComponent(text)}`;
+    tg.openTelegramLink?.(share);
     return true;
   } catch (_) {
     return false;
   }
+}
+
+/**
+ * Открывает инвойс Stars или запасную ссылку доната.
+ * @returns {'invoice'|'link'|'copy'}
+ */
+export function openDonate(stars, options = {}) {
+  const invoice = options.invoices?.[stars];
+  if (invoice && typeof tg?.openInvoice === 'function') {
+    try {
+      tg.openInvoice(invoice, () => {});
+      return 'invoice';
+    } catch (_) { /* нет Stars на клиенте */ }
+  }
+
+  let url = '';
+  if (options.url) url = String(options.url).replace('{stars}', String(stars));
+  else if (options.bot) url = `https://t.me/${options.bot}?start=donate${stars}`;
+
+  if (url) {
+    try {
+      if (tg?.openLink) tg.openLink(url);
+      else if (tg?.openTelegramLink) tg.openTelegramLink(url);
+      else window.open(url, '_blank', 'noopener');
+      return 'link';
+    } catch (_) { /* */ }
+  }
+
+  try { navigator.clipboard?.writeText(String(stars)); } catch (_) { /* */ }
+  return 'copy';
 }

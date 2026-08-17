@@ -16,6 +16,11 @@ import { Ui } from './ui.js';
 import { loadRecords, bestFor, submit } from './records.js';
 import { loadDaily, status as dailyStatus, addResult as addDailyResult } from './daily.js';
 import { t, loadLanguage, setLanguage, applyStaticText } from './i18n.js';
+import { loadCareer, addCareer } from './career.js';
+import {
+  loadSocial, snapshot as socialSnapshot, shareInvite, createClan, joinClan,
+  leaveClan, takeToast, syncSelfScore,
+} from './social.js';
 
 const OFFSET_KEY = 'audio_offset';
 
@@ -41,6 +46,7 @@ class Game {
     this.trackId = TRACKS[0].id;
     this.customFile = null;
     this.offsetMs = 0;
+    this.board = 'global';
 
     this.relax = new RelaxMode(this);
     this.drive = new DriveMode(this);
@@ -56,6 +62,12 @@ class Game {
       onBack: () => this._toMenu(),
       onRetry: () => this.start(),
       onMenu: () => this._toMenu(),
+      onOpenProfile: () => this._openProfile(),
+      onBoardChange: (board) => this._openProfile(board),
+      onInvite: (kind) => this._invite(kind),
+      onCreateClan: (name) => this._createClan(name),
+      onJoinClan: (code) => this._joinClan(code),
+      onLeaveClan: () => this._leaveClan(),
     });
     this.hud = this.ui.hud;
 
@@ -67,6 +79,7 @@ class Game {
     applyStaticText();
     this._loadSettings();
     this._syncMenu();
+    this.ui.showScreen('menu');
   }
 
   // ── Настройки и меню ─────────────────────────────────────────────────────
@@ -84,7 +97,11 @@ class Game {
     }
     await loadRecords();
     await loadDaily();
+    await loadCareer();
+    await loadSocial();
+    const toast = takeToast();
     this._syncMenu();
+    if (toast) this.ui.showToast(t(toast));
   }
 
   _setOffset(ms) {
@@ -97,6 +114,7 @@ class Game {
     setLanguage(code);
     this.ui.retranslate();
     this._syncMenu();
+    if (this.state === 'profile') this._openProfile(this.board);
   }
 
   _selectMode(id) {
@@ -122,7 +140,47 @@ class Game {
       offsetMs: this.offsetMs,
       records,
       daily: dailyStatus(),
+      profile: socialSnapshot(),
     });
+  }
+
+  _openProfile(board) {
+    if (board) this.board = board;
+    if (this.state === 'playing' || this.state === 'loading') this.abort();
+    this.state = 'profile';
+    this.ui.syncProfile(socialSnapshot(), this.board);
+    this.ui.showScreen('profile');
+  }
+
+  _invite(kind) {
+    const result = shareInvite(kind);
+    if (!result.shared) this.ui.showToast(t('profile.copied'));
+  }
+
+  _createClan(name) {
+    const clan = createClan(name);
+    if (!clan) {
+      this.ui.showToast(t('profile.needName'));
+      return;
+    }
+    this.board = 'clan';
+    this.ui.syncProfile(socialSnapshot(), 'clan');
+  }
+
+  _joinClan(code) {
+    const clan = joinClan(code);
+    if (!clan) {
+      this.ui.showToast(t('profile.needCode'));
+      return;
+    }
+    this.board = 'clan';
+    this.ui.syncProfile(socialSnapshot(), 'clan');
+  }
+
+  _leaveClan() {
+    leaveClan();
+    this.board = 'clan';
+    this.ui.syncProfile(socialSnapshot(), 'clan');
   }
 
   _toMenu() {
@@ -313,6 +371,8 @@ class Game {
       ? null
       : submit(this.modeId, this.trackId, this.difficulty, stats.score);
     const daily = addDailyResult(stats);
+    addCareer({ ...stats, mode: this.modeId });
+    syncSelfScore();
 
     this.ui.showResult(stats, {
       modeTitle: mode.title,

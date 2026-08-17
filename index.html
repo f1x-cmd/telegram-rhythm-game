@@ -14,6 +14,14 @@
 
     <!-- ─── Меню ─────────────────────────────────────────────────────────── -->
     <section id="menu" class="screen active">
+      <button id="profile-chip" type="button" class="profile-chip" data-i18n="aria.profile" data-i18n-attr="aria-label">
+        <span id="chip-avatar" class="avatar"></span>
+        <span class="chip-text">
+          <b id="chip-name">Player</b>
+          <small id="chip-meta"></small>
+        </span>
+        <span id="chip-rank" class="chip-rank"></span>
+      </button>
       <header class="menu-header">
         <h1>RHYTHM</h1>
         <p class="menu-subtitle" data-i18n="app.subtitle"></p>
@@ -122,6 +130,105 @@
       <button id="retry-btn" type="button" class="primary-btn" data-i18n="result.retry"></button>
       <button id="menu-btn" type="button" class="ghost-btn" data-i18n="result.menu"></button>
     </section>
+
+    <!-- ─── Кабинет ──────────────────────────────────────────────────────── -->
+    <section id="profile-screen" class="screen">
+      <header class="profile-head">
+        <div class="profile-id">
+          <span id="profile-avatar" class="avatar avatar-lg"></span>
+          <div class="profile-id-text">
+            <h2 id="profile-name">Player</h2>
+            <p id="profile-handle" class="profile-handle"></p>
+            <p id="profile-title" class="profile-title"></p>
+          </div>
+        </div>
+        <div class="streak-pill" id="profile-streak-wrap">
+          <span>🔥</span>
+          <b id="profile-streak">0</b>
+        </div>
+      </header>
+
+      <div class="hero-score">
+        <span id="hero-points" class="hero-points">0</span>
+        <span class="hero-label" data-i18n="profile.points"></span>
+      </div>
+
+      <div class="rank-cards">
+        <button type="button" class="rank-card" data-board="global">
+          <span class="rank-card-place" id="rank-global">—</span>
+          <span class="rank-card-label" data-i18n="profile.global"></span>
+        </button>
+        <button type="button" class="rank-card" data-board="friends">
+          <span class="rank-card-place" id="rank-friends">—</span>
+          <span class="rank-card-label" data-i18n="profile.friends"></span>
+        </button>
+        <button type="button" class="rank-card" data-board="clan">
+          <span class="rank-card-place" id="rank-clan">—</span>
+          <span class="rank-card-label" data-i18n="profile.clan"></span>
+        </button>
+      </div>
+
+      <ul class="stat-grid">
+        <li><span data-i18n="profile.rating"></span><b id="stat-rating">800</b></li>
+        <li><span data-i18n="profile.plays"></span><b id="stat-plays">0</b></li>
+        <li><span data-i18n="profile.best"></span><b id="stat-best">0</b></li>
+        <li><span data-i18n="profile.combo"></span><b id="stat-combo">0</b></li>
+      </ul>
+
+      <div class="board-tabs" role="tablist">
+        <button type="button" class="board-tab selected" data-board="global" data-i18n="profile.global"></button>
+        <button type="button" class="board-tab" data-board="friends" data-i18n="profile.friends"></button>
+        <button type="button" class="board-tab" data-board="clan" data-i18n="profile.clan"></button>
+      </div>
+      <p id="board-hint" class="board-hint"></p>
+      <ol id="board-list" class="board-list"></ol>
+      <p id="board-empty" class="board-empty"></p>
+
+      <div id="clan-form" class="clan-form hidden">
+        <div class="clan-row">
+          <input id="clan-name" type="text" maxlength="18" autocomplete="off">
+          <button id="create-clan-btn" type="button" class="secondary-btn" data-i18n="profile.createClan"></button>
+        </div>
+        <div class="clan-row">
+          <input id="clan-code" type="text" maxlength="4" autocomplete="off" class="clan-code-input">
+          <button id="join-clan-btn" type="button" class="secondary-btn" data-i18n="profile.joinClan"></button>
+        </div>
+      </div>
+
+      <div id="clan-actions" class="clan-actions hidden">
+        <p id="clan-banner" class="clan-banner"></p>
+        <div class="result-actions">
+          <button id="share-clan-btn" type="button" class="secondary-btn" data-i18n="profile.shareClan"></button>
+          <button id="leave-clan-btn" type="button" class="ghost-btn" data-i18n="profile.leaveClan"></button>
+        </div>
+      </div>
+
+      <div class="viral-row">
+        <button id="invite-btn" type="button" class="primary-btn" data-i18n="profile.invite"></button>
+        <button id="challenge-btn" type="button" class="secondary-btn" data-i18n="profile.challenge"></button>
+      </div>
+
+      <div class="donate-bar">
+        <div class="donate-copy">
+          <b data-i18n="profile.donateTitle"></b>
+          <p data-i18n="profile.donateHint"></p>
+        </div>
+        <div id="donate-packs" class="donate-packs"></div>
+      </div>
+    </section>
+
+    <nav id="app-nav" class="app-nav">
+      <button type="button" class="nav-btn selected" data-nav="menu">
+        <span class="nav-icon">▶</span>
+        <span data-i18n="nav.play"></span>
+      </button>
+      <button type="button" class="nav-btn" data-nav="profile">
+        <span class="nav-icon">◆</span>
+        <span data-i18n="nav.profile"></span>
+      </button>
+    </nav>
+
+    <div id="toast" class="toast hidden"></div>
 
   </div>
 

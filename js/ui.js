@@ -3,11 +3,14 @@
  * Скрытие текста оценки идёт по часам AudioContext, а не по таймерам.
  */
 
-import { MODES, DRIVE_DIFFICULTY, TRACKS, rankFor } from './config.js';
-import { shareResult, getUser } from './telegram.js';
+import { MODES, DRIVE_DIFFICULTY, TRACKS, rankFor, DONATE } from './config.js';
+import { shareResult, getUser, openDonate } from './telegram.js';
 import { LANGUAGES, t, formatNumber, languagePreference, applyStaticText, isRtl } from './i18n.js';
 
 const $ = (selector) => document.querySelector(selector);
+const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => (
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]
+));
 
 export class Ui {
   constructor(handlers) {
@@ -18,7 +21,13 @@ export class Ui {
         menu: $('#menu'),
         game: $('#game-screen'),
         result: $('#result-screen'),
+        profile: $('#profile-screen'),
       },
+      profileChip: $('#profile-chip'),
+      chipAvatar: $('#chip-avatar'),
+      chipName: $('#chip-name'),
+      chipMeta: $('#chip-meta'),
+      chipRank: $('#chip-rank'),
       modeList: $('#mode-list'),
       difficultyRow: $('#difficulty-row'),
       difficultyList: $('#difficulty-list'),
@@ -57,6 +66,37 @@ export class Ui {
       downloadBtn: $('#download-btn'),
       retryBtn: $('#retry-btn'),
       menuBtn: $('#menu-btn'),
+
+      profileAvatar: $('#profile-avatar'),
+      profileName: $('#profile-name'),
+      profileHandle: $('#profile-handle'),
+      profileTitle: $('#profile-title'),
+      profileStreak: $('#profile-streak'),
+      heroPoints: $('#hero-points'),
+      rankGlobal: $('#rank-global'),
+      rankFriends: $('#rank-friends'),
+      rankClan: $('#rank-clan'),
+      statRating: $('#stat-rating'),
+      statPlays: $('#stat-plays'),
+      statBest: $('#stat-best'),
+      statCombo: $('#stat-combo'),
+      boardHint: $('#board-hint'),
+      boardList: $('#board-list'),
+      boardEmpty: $('#board-empty'),
+      clanForm: $('#clan-form'),
+      clanActions: $('#clan-actions'),
+      clanBanner: $('#clan-banner'),
+      clanName: $('#clan-name'),
+      clanCode: $('#clan-code'),
+      createClanBtn: $('#create-clan-btn'),
+      joinClanBtn: $('#join-clan-btn'),
+      shareClanBtn: $('#share-clan-btn'),
+      leaveClanBtn: $('#leave-clan-btn'),
+      inviteBtn: $('#invite-btn'),
+      challengeBtn: $('#challenge-btn'),
+      donatePacks: $('#donate-packs'),
+      appNav: $('#app-nav'),
+      toast: $('#toast'),
     };
 
     this._judgmentHideAt = 0;
@@ -66,12 +106,15 @@ export class Ui {
     this._lastBar = -1;
     this._lastShield = null;
     this._shareUrl = null;
+    this._board = 'global';
+    this._toastHideAt = 0;
 
     this.hud = {
       showJudgment: (text, cls) => this.showJudgment(text, cls),
     };
 
     this._buildMenu();
+    this._fillProfileStatics();
     this._bindEvents();
   }
 
@@ -113,6 +156,15 @@ export class Ui {
   retranslate() {
     applyStaticText();
     this._buildMenu();
+    this._fillProfileStatics();
+  }
+
+  _fillProfileStatics() {
+    if (this.el.clanName) this.el.clanName.placeholder = t('profile.clanName');
+    if (this.el.clanCode) this.el.clanCode.placeholder = t('profile.clanCode');
+    this.el.donatePacks.innerHTML = DONATE.packs.map((stars) => `
+      <button type="button" class="donate-pack" data-stars="${stars}">${t('profile.stars', { n: stars })}</button>
+    `).join('');
   }
 
   _bindEvents() {
@@ -150,6 +202,35 @@ export class Ui {
     this.el.backBtn.addEventListener('click', () => this.handlers.onBack());
     this.el.retryBtn.addEventListener('click', () => this.handlers.onRetry());
     this.el.menuBtn.addEventListener('click', () => this.handlers.onMenu());
+    this.el.profileChip.addEventListener('click', () => this.handlers.onOpenProfile());
+
+    this.el.appNav.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-nav]');
+      if (!button) return;
+      if (button.dataset.nav === 'profile') this.handlers.onOpenProfile();
+      else this.handlers.onMenu();
+    });
+
+    this.el.profileScreen = this.el.screens.profile;
+    this.el.screens.profile.addEventListener('click', (event) => {
+      const tab = event.target.closest('[data-board]');
+      if (tab) this.handlers.onBoardChange(tab.dataset.board);
+    });
+
+    this.el.inviteBtn.addEventListener('click', () => this.handlers.onInvite('friend'));
+    this.el.challengeBtn.addEventListener('click', () => this.handlers.onInvite('challenge'));
+    this.el.shareClanBtn.addEventListener('click', () => this.handlers.onInvite('clan'));
+    this.el.createClanBtn.addEventListener('click', () => this.handlers.onCreateClan(this.el.clanName.value));
+    this.el.joinClanBtn.addEventListener('click', () => this.handlers.onJoinClan(this.el.clanCode.value));
+    this.el.leaveClanBtn.addEventListener('click', () => this.handlers.onLeaveClan());
+    this.el.donatePacks.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-stars]');
+      if (!button) return;
+      const stars = Number(button.dataset.stars);
+      const result = openDonate(stars, DONATE);
+      this.showToast(t(result === 'copy' ? 'profile.donateThanks' : 'profile.donateThanks'));
+      this.handlers.onDonate?.(stars, result);
+    });
 
     this.el.shareBtn.addEventListener('click', () => {
       const text = this.el.shareBtn.dataset.text || 'Rhythm Game';
@@ -205,10 +286,99 @@ export class Ui {
     this.el.playBtn.textContent = t('menu.play', { mode: mode.title });
     this.el.playBtn.style.setProperty('--accent', mode.accent);
     document.body.dataset.mode = state.mode;
+
+    if (state.profile) this._paintChip(state.profile);
   }
 
   _offsetLabel(ms) {
     return `${ms > 0 ? '+' : ''}${ms} ${t('unit.ms')}`;
+  }
+
+  _setAvatar(element, name, photo) {
+    const initial = (name || 'P').trim().charAt(0).toUpperCase();
+    element.textContent = photo ? '' : initial;
+    element.style.backgroundImage = photo ? `url("${photo}")` : '';
+  }
+
+  _paintChip(profile) {
+    const { player, stats, league } = profile;
+    this._setAvatar(this.el.chipAvatar, player.name, player.photo);
+    this.el.chipName.textContent = player.name;
+    this.el.chipMeta.textContent = `${formatNumber(stats.totalScore)} · ${t(`league.${league.id}`)}`;
+    this.el.chipRank.textContent = t(`title.${profile.title.id}`);
+    this.el.chipRank.style.color = league.color;
+  }
+
+  showToast(message) {
+    if (!message) return;
+    this.el.toast.textContent = message;
+    this.el.toast.classList.remove('hidden');
+    window.clearTimeout(this._toastHideAt);
+    this._toastHideAt = window.setTimeout(() => this.el.toast.classList.add('hidden'), 2400);
+  }
+
+  syncProfile(profile, board = this._board) {
+    this._board = board;
+    this._paintChip(profile);
+
+    const { player, stats, league, title } = profile;
+    this._setAvatar(this.el.profileAvatar, player.name, player.photo);
+    this.el.profileName.textContent = player.name;
+    this.el.profileHandle.textContent = player.username || t('profile.you');
+    this.el.profileTitle.textContent = `${t(`title.${title.id}`)} · ${t(`league.${league.id}`)}`;
+    this.el.profileTitle.style.color = league.color;
+    this.el.profileStreak.textContent = String(stats.streak || 0);
+    this.el.heroPoints.textContent = formatNumber(stats.totalScore);
+
+    this.el.rankGlobal.textContent = profile.global.size > 1
+      ? `#${profile.global.place}`
+      : t(`league.${league.id}`);
+    this.el.rankFriends.textContent = profile.friends.size > 1
+      ? `#${profile.friends.place}`
+      : '—';
+    this.el.rankClan.textContent = profile.clan
+      ? `#${profile.clan.place}`
+      : '—';
+
+    this.el.statRating.textContent = formatNumber(profile.rating);
+    this.el.statPlays.textContent = formatNumber(stats.plays);
+    this.el.statBest.textContent = formatNumber(stats.bestScore);
+    this.el.statCombo.textContent = formatNumber(stats.maxCombo);
+
+    for (const card of document.querySelectorAll('.rank-card, .board-tab')) {
+      card.classList.toggle('selected', card.dataset.board === board);
+    }
+
+    const pack = board === 'friends' ? profile.friends : board === 'clan' ? profile.clan : profile.global;
+    const rows = pack?.rows ?? [];
+    const empty = board === 'friends'
+      ? t('profile.emptyFriends')
+      : board === 'clan'
+        ? t('profile.emptyClan')
+        : t('profile.emptyGlobal');
+
+    this.el.boardHint.textContent = t('profile.networkHint');
+    this.el.boardList.innerHTML = rows.map((row) => `
+      <li class="board-row${row.self ? ' self' : ''}">
+        <span class="board-place">${row.place}</span>
+        <span class="avatar" style="${row.photo ? `background-image:url('${esc(row.photo)}')` : ''}">${row.photo ? '' : esc((row.name || 'P').charAt(0))}</span>
+        <span class="board-name">${row.self ? t('profile.me') : esc(row.name)}</span>
+        <span class="board-score">${formatNumber(row.score)}</span>
+      </li>
+    `).join('');
+
+    const lonely = rows.length <= 1 && board !== 'clan';
+    const clanEmpty = board === 'clan' && !profile.clan;
+    this.el.boardEmpty.textContent = lonely || clanEmpty ? empty : '';
+    this.el.boardEmpty.classList.toggle('hidden', !(lonely || clanEmpty));
+    if (board === 'clan' && profile.clan) this.el.boardEmpty.classList.add('hidden');
+
+    this.el.clanForm.classList.toggle('hidden', board !== 'clan' || Boolean(profile.clan));
+    this.el.clanActions.classList.toggle('hidden', board !== 'clan' || !profile.clan);
+    if (profile.clan) {
+      const role = t(profile.clan.role === 'leader' ? 'profile.leader' : 'profile.member');
+      this.el.clanBanner.textContent = `${profile.clan.name} · ${profile.clan.code} · ${role}`;
+    }
   }
 
   showError(message) {
@@ -220,6 +390,10 @@ export class Ui {
   showScreen(name) {
     for (const [key, element] of Object.entries(this.el.screens)) {
       element.classList.toggle('active', key === name);
+    }
+    document.body.dataset.screen = name;
+    for (const button of this.el.appNav.querySelectorAll('[data-nav]')) {
+      button.classList.toggle('selected', button.dataset.nav === (name === 'profile' ? 'profile' : 'menu'));
     }
   }
 
