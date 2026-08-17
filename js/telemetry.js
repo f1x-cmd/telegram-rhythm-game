@@ -54,6 +54,10 @@ export function summarize() {
   const scores = plays.map((e) => Number(e.score) || 0);
   const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
   const best = scores.length ? Math.max(...scores) : 0;
+  const durations = plays.map((e) => Number(e.durationSec) || 0).filter((n) => n > 0);
+  const avgDuration = durations.length
+    ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+    : 0;
   const byMode = { relax: 0, drive: 0 };
   const byTrack = {};
   for (const play of plays) {
@@ -71,6 +75,7 @@ export function summarize() {
     today: todayPlays.length,
     avg,
     best,
+    avgDuration,
     fails: plays.filter((e) => e.failed).length,
     invites: events.filter((e) => e.type === 'invite').length,
     donates: events.filter((e) => e.type === 'donate').length,

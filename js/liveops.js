@@ -64,8 +64,9 @@ function applyRuntime() {
   state.shieldMisses = Math.max(0, Number(state.shieldMisses) || 0);
 }
 
-export async function loadLiveOps() {
-  if (loaded) {
+export async function loadLiveOps(options = {}) {
+  const force = options?.force === true;
+  if (loaded && !force) {
     applyRuntime();
     return state;
   }
@@ -137,6 +138,17 @@ export function scoreMultiplier() {
   const until = Date.parse(state.eventUntil);
   if (!Number.isFinite(until) || Date.now() > until) return 1;
   return Math.max(1, mult);
+}
+
+/** Активный ивент для баннера меню (без истёкших дат). */
+export function activeEvent() {
+  const mult = scoreMultiplier();
+  if (mult <= 1) return null;
+  return {
+    name: state.eventName || '',
+    mult,
+    until: state.eventUntil || '',
+  };
 }
 
 export function shieldConfig() {

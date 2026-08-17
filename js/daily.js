@@ -69,6 +69,9 @@ export async function loadDaily() {
 }
 
 export function status() {
+  const date = today();
+  if (state.date !== date) reset(date);
+
   const goals = pool();
   const goal = goals.find((item) => item.id === state.goalId) ?? goals[0];
   return {

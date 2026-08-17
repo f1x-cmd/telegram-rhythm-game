@@ -135,6 +135,27 @@ body[data-mode='relax'] { --accent: #6FE9FF; }
   background: color-mix(in srgb, #FF3300 14%, var(--panel));
 }
 
+.ops-banner.event {
+  border-color: color-mix(in srgb, #FFD98C 45%, var(--line));
+  background: color-mix(in srgb, #FFD98C 12%, var(--panel));
+}
+
+.play-meta {
+  margin: -6px 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.35;
+}
+
+.play-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #FF7755;
+  text-align: center;
+  line-height: 1.35;
+}
+
 .daily-card {
   display: flex;
   flex-direction: column;
@@ -400,6 +421,11 @@ body[data-mode='relax'] { --accent: #6FE9FF; }
 }
 
 .primary-btn:active { opacity: 0.88; }
+
+.primary-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 
 #menu #play-btn {
   position: sticky;
@@ -760,6 +786,11 @@ body[data-mode='relax'] { --accent: #6FE9FF; }
   align-self: center;
   border: 1px solid var(--line);
   border-radius: 12px;
+}
+
+.result-actions {
+  display: flex;
+  gap: 10px;
 }
 
 #result-screen #retry-btn {

@@ -6,7 +6,7 @@
 import { MODES, DRIVE_DIFFICULTY, rankFor } from './config.js';
 import { shareResult, getUser, openDonate, peekLocal, storage } from './telegram.js';
 import { LANGUAGES, t, formatNumber, languagePreference, applyStaticText, isRtl } from './i18n.js';
-import { donateRuntime, liveops, activeTracks, isBanned } from './liveops.js';
+import { donateRuntime, liveops, activeTracks, isBanned, activeEvent } from './liveops.js';
 import { me } from './social.js';
 
 const $ = (selector) => document.querySelector(selector);
@@ -36,6 +36,7 @@ export class Ui {
       trackList: $('#track-list'),
       fileInput: $('#custom-track'),
       customName: $('#custom-track-name'),
+      customHint: $('#custom-track-hint'),
       dailyTitle: $('#daily-title'),
       dailyStatus: $('#daily-status'),
       dailyFill: $('#daily-fill'),
@@ -44,6 +45,8 @@ export class Ui {
       langSelect: $('#lang-select'),
       opsBanner: $('#ops-banner'),
       playBtn: $('#play-btn'),
+      playMeta: $('#play-meta'),
+      playHint: $('#play-hint'),
       menuError: $('#menu-error'),
       coach: $('#coach'),
 
@@ -303,22 +306,54 @@ export class Ui {
     this.el.playBtn.style.setProperty('--accent', mode.accent);
     document.body.dataset.mode = state.mode;
 
+    const catalog = activeTracks();
+    const trackTitle = state.customFile
+      ? state.customFile.name.replace(/\.[^.]+$/, '')
+      : (catalog.find((item) => item.id === state.trackId) ?? catalog[0])?.title ?? '—';
+    const event = activeEvent();
+    const metaParts = [trackTitle];
+    if (event) {
+      metaParts.unshift(event.name
+        ? t('ops.eventNamed', { name: event.name, mult: event.mult })
+        : t('ops.eventMult', { mult: event.mult }));
+    }
+    if (this.el.playMeta) this.el.playMeta.textContent = metaParts.join(' · ');
+
     if (state.profile) this._paintChip(state.profile);
 
     const ops = liveops();
     const banner = ops.maintenance
       ? (ops.maintenanceText || t('ops.maintenance'))
-      : (ops.banner || '');
+      : (ops.banner || (event && !ops.banner
+        ? (event.name
+          ? t('ops.eventNamed', { name: event.name, mult: event.mult })
+          : t('ops.eventMult', { mult: event.mult }))
+        : ''));
     this.el.opsBanner.textContent = banner;
     this.el.opsBanner.classList.toggle('hidden', !banner);
     this.el.opsBanner.classList.toggle('alert', Boolean(ops.maintenance));
-    const noCatalog = activeTracks().length === 0 && !state.customFile;
+    this.el.opsBanner.classList.toggle('event', Boolean(event && !ops.maintenance));
+    const noCatalog = catalog.length === 0 && !state.customFile;
     const locked = Boolean(ops.maintenance) || isBanned(me().id) || noCatalog;
     this.el.playBtn.disabled = locked;
-    this.el.playBtn.style.opacity = locked ? '0.45' : '';
+    if (this.el.playHint) {
+      const hint = locked
+        ? (ops.maintenance
+          ? (ops.maintenanceText || t('ops.maintenance'))
+          : isBanned(me().id)
+            ? t('ops.banned')
+            : t('ops.noTracks'))
+        : '';
+      this.el.playHint.textContent = hint;
+      this.el.playHint.classList.toggle('hidden', !hint);
+    }
 
     const upload = document.querySelector('.upload-btn');
     if (upload) upload.classList.toggle('hidden', ops.allowUpload === false);
+    if (this.el.fileInput) this.el.fileInput.disabled = ops.allowUpload === false;
+    if (this.el.customHint) {
+      this.el.customHint.classList.toggle('hidden', !state.customFile);
+    }
     const donateBar = document.querySelector('.donate-bar');
     if (donateBar) donateBar.classList.toggle('hidden', ops.allowDonate === false);
     const inviteBtn = this.el.inviteBtn;

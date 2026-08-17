@@ -78,6 +78,7 @@ class Game {
 
     this._rafId = 0;
     this._lastTime = 0;
+    this._playStartedAt = 0;
 
     this._bindEvents();
     this._resize();
@@ -121,7 +122,8 @@ class Game {
 
   _warmTrack() {
     if (this.customFile) return;
-    const track = TRACKS.find((item) => item.id === this.trackId);
+    const catalog = activeTracks();
+    const track = catalog.find((item) => item.id === this.trackId) ?? catalog[0];
     if (track?.url) this.audio.prefetch(track.url);
   }
 
@@ -211,7 +213,7 @@ class Game {
   _toMenu() {
     this.abort();
     this.ui.showScreen('menu');
-    this._syncMenu();
+    loadLiveOps({ force: true }).then(() => this._syncMenu());
   }
 
   // ── События ──────────────────────────────────────────────────────────────
@@ -225,18 +227,23 @@ class Game {
         this.audio.pause();
         cancelAnimationFrame(this._rafId);
         this._rafId = 0;
-      } else if (this.state === 'playing') {
-        this.audio.resume();
-        this._lastTime = this.audio.time;
-        this._loop();
+      } else {
+        loadLiveOps({ force: true }).then(() => this._syncMenu());
+        if (this.state === 'playing') {
+          this.audio.init().then(() => {
+            this._lastTime = this.audio.time;
+            if (!this._rafId) this._loop();
+          });
+        }
       }
     });
 
     const field = this.field;
-    field.addEventListener('pointerdown', (event) => {
+    field.addEventListener('pointerdown', async (event) => {
       if (this.state !== 'playing') return;
       if (event.target.closest('button')) return;
       event.preventDefault();
+      await this.audio.init();
       this.ui.dismissCoach(this.modeId);
       try { field.setPointerCapture(event.pointerId); } catch (_) { /* не критично */ }
       const { x, y } = this._localPoint(event);
@@ -284,7 +291,7 @@ class Game {
   async start() {
     if (this.state === 'loading') return;
     await this._ready;
-    await loadLiveOps();
+    await loadLiveOps({ force: true });
 
     if (isBanned(me().id)) {
       this.ui.showError(t('ops.banned'));
@@ -311,7 +318,9 @@ class Game {
     this.state = 'loading';
     this.ui.showError('');
 
-    const track = TRACKS.find((item) => item.id === this.trackId) ?? catalog[0] ?? TRACKS[0];
+    const track = this.customFile
+      ? null
+      : (catalog.find((item) => item.id === this.trackId) ?? catalog[0]);
 
     try {
       this.ui.showScreen('game');
@@ -321,7 +330,8 @@ class Game {
 
       await this.audio.init();
       if (this.customFile) await this.audio.loadFile(this.customFile);
-      else await this.audio.loadUrl(track.url);
+      else if (track) await this.audio.loadUrl(track.url);
+      else throw new Error(t('ops.noTracks'));
 
       this.ui.setLoading(t('load.analyze'));
       await this._nextFrame();
@@ -348,6 +358,7 @@ class Game {
 
       this.ui.setLoading('');
       this.state = 'playing';
+      this._playStartedAt = Date.now();
       this._lastTime = this.audio.time;
       this._loop();
     } catch (error) {
@@ -422,7 +433,9 @@ class Game {
       if (stats.metrics) stats.metrics.score = stats.score;
     }
 
-    const track = TRACKS.find((item) => item.id === this.trackId) ?? TRACKS[0];
+    const track = this.customFile
+      ? null
+      : (TRACKS.find((item) => item.id === this.trackId) ?? activeTracks()[0]);
     const mode = MODES[this.modeId];
     // Рекорды ведутся только по встроенным трекам: свой файл каждый раз новый
     const record = this.customFile
@@ -439,6 +452,9 @@ class Game {
       accuracy: stats.accuracy,
       failed: Boolean(stats.failed),
       mult,
+      durationSec: this._playStartedAt
+        ? Math.max(0, Math.round((Date.now() - this._playStartedAt) / 1000))
+        : 0,
     });
 
     this.ui.showResult(stats, {

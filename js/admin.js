@@ -230,6 +230,7 @@ function renderOverview() {
     ['Партии сегодня', kpi.today],
     ['Партии всего', kpi.total],
     ['Средний счёт', kpi.avg],
+    ['Ср. длительность', kpi.avgDuration ? `${kpi.avgDuration} с` : '—'],
     ['Инвайты / Stars', `${kpi.invites} / ${kpi.donates}`],
   ].map(([label, value]) => `<article class="kpi"><b>${typeof value === 'number' ? fmt(value) : value}</b><span>${label}</span></article>`).join('');
 
@@ -337,7 +338,7 @@ function save(note) {
   saveLiveOps(patch, operatorName());
   fillForm(liveops());
   refresh();
-  flash('Конфиг записан. Игра подхватит его при следующем заходе в меню.');
+  flash('Конфиг записан. Игра подхватит его при возврате в меню или в приложение.');
 }
 
 function openShell() {
