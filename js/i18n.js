@@ -1461,6 +1461,17 @@ for (const [lang, extra] of Object.entries(PROFILE)) {
   Object.assign(DICT[lang], extra);
 }
 
+Object.assign(DICT.en, {
+  'ops.maintenance': 'The game is on a short break. Come back soon.',
+  'ops.banned': 'This account is restricted.',
+  'ops.noTracks': 'No tracks are available right now.',
+});
+Object.assign(DICT.ru, {
+  'ops.maintenance': 'Короткий перерыв. Загляните чуть позже.',
+  'ops.banned': 'Этот аккаунт ограничен.',
+  'ops.noTracks': 'Сейчас нет доступных треков.',
+});
+
 /** 'pt-BR' → 'pt', 'zh-Hans-CN' → 'zh'; неизвестный код → null. */
 function normalize(code) {
   if (!code) return null;

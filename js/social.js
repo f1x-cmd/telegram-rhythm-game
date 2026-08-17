@@ -267,3 +267,11 @@ export function snapshot() {
       : null,
   };
 }
+
+export function socialDump() {
+  return {
+    friends: state.friends,
+    clan: state.clan,
+    network: state.network,
+  };
+}

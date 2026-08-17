@@ -156,6 +156,15 @@ export const DONATE = {
   bot: '',
 };
 
+/**
+ * Доступ в админ-панель (admin.html).
+ * pin — локальный пароль; ids — Telegram user id, которые входят без пароля.
+ */
+export const ADMIN = {
+  pin: 'rhythm',
+  ids: [],
+};
+
 /** Лиги кабинета по сумме очков за всё время. */
 export const LEAGUES = [
   { id: 'master',  min: 1500000, color: '#FF007A' },

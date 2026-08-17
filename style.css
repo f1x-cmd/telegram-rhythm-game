@@ -121,7 +121,20 @@ body[data-mode='relax'] { --accent: #6FE9FF; }
 
 .lang-select option { background: #12121c; color: var(--text); }
 
-/* Цель дня */
+.ops-banner {
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.ops-banner.alert {
+  border-color: color-mix(in srgb, #FF3300 50%, var(--line));
+  background: color-mix(in srgb, #FF3300 14%, var(--panel));
+}
+
 .daily-card {
   display: flex;
   flex-direction: column;

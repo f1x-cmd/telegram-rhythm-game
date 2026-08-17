@@ -29,6 +29,10 @@ export async function loadRecords() {
   return table;
 }
 
+export function allRecords() {
+  return { ...table };
+}
+
 export function bestFor(modeId, trackId, difficulty) {
   return table[makeKey(modeId, trackId, difficulty)] ?? 0;
 }

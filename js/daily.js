@@ -6,11 +6,11 @@
 
 import { storage } from './telegram.js';
 import { t, formatNumber } from './i18n.js';
+import { dailyTargets, forcedDailyId } from './liveops.js';
 
 const KEY = 'daily_v1';
 
-/** Пул заданий; конкретное выбирается по дате, поэтому одинаково за день. */
-const GOALS = [
+const BASE_GOALS = [
   { id: 'notes',   metric: 'notes',   target: 220 },
   { id: 'score',   metric: 'score',   target: 120000 },
   { id: 'combo',   metric: 'combo',   target: 60, best: true },
@@ -18,7 +18,15 @@ const GOALS = [
   { id: 'flow',    metric: 'flow',    target: 3 },
 ];
 
-let state = { date: '', goalId: GOALS[0].id, progress: 0, done: false };
+function pool() {
+  const targets = dailyTargets();
+  return BASE_GOALS.map((goal) => ({
+    ...goal,
+    target: Number(targets[goal.id]) || goal.target,
+  }));
+}
+
+let state = { date: '', goalId: BASE_GOALS[0].id, progress: 0, done: false };
 let loaded = false;
 
 function today() {
@@ -32,7 +40,12 @@ function today() {
 function goalForDate(date) {
   let hash = 0;
   for (let i = 0; i < date.length; i++) hash = (hash * 31 + date.charCodeAt(i)) >>> 0;
-  return GOALS[hash % GOALS.length];
+  const goals = pool();
+  const forced = forcedDailyId();
+  if (forced) {
+    return goals.find((item) => item.id === forced) ?? goals[0];
+  }
+  return goals[hash % goals.length];
 }
 
 function reset(date) {
@@ -56,7 +69,8 @@ export async function loadDaily() {
 }
 
 export function status() {
-  const goal = GOALS.find((item) => item.id === state.goalId) ?? GOALS[0];
+  const goals = pool();
+  const goal = goals.find((item) => item.id === state.goalId) ?? goals[0];
   return {
     id: goal.id,
     // Заголовок собирается при каждом чтении, чтобы отражать текущий язык
@@ -74,7 +88,8 @@ export function status() {
  * @returns {{justCompleted: boolean} & ReturnType<typeof status>}
  */
 export function addResult(stats) {
-  const goal = GOALS.find((item) => item.id === state.goalId) ?? GOALS[0];
+  const goals = pool();
+  const goal = goals.find((item) => item.id === state.goalId) ?? goals[0];
   const value = stats.metrics?.[goal.metric] ?? 0;
 
   // Комбо не суммируется — считаем лучший результат за день
@@ -87,4 +102,18 @@ export function addResult(stats) {
   storage.set(KEY, JSON.stringify(state));
 
   return { ...status(), justCompleted: state.done && !wasDone };
+}
+
+export function dailyPool() {
+  return pool();
+}
+
+/** Админка: сменить сегодняшнее задание и обнулить прогресс. */
+export function adminSetGoal(id) {
+  const goals = pool();
+  const goal = goals.find((item) => item.id === id);
+  if (!goal) return status();
+  state = { date: today(), goalId: goal.id, progress: 0, done: false };
+  storage.set(KEY, JSON.stringify(state));
+  return status();
 }

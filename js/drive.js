@@ -6,11 +6,12 @@
 
 import {
   LANES, ZONE, TIMING, JUDGE, JUDGE_KEYS, COLORS, SCORE_BASE, MAX_HP,
-  SHIELD_TIME, SHIELD_MISSES, AVOID_PENALTY, SWIPE_MIN_PX, SWIPE_WINDOW,
+  AVOID_PENALTY, SWIPE_MIN_PX, SWIPE_WINDOW,
   HOLD_TICK, COMBO_SHAKE, DRIVE_DIFFICULTY, comboMultiplier,
 } from './config.js';
 import { haptic } from './telegram.js';
 import { t } from './i18n.js';
+import { shieldConfig } from './liveops.js';
 
 export class DriveMode {
   constructor(game) {
@@ -33,6 +34,8 @@ export class DriveMode {
     this.rushes = 0;
     this.total = 0;
     this.counts = {};
+    this.shieldTime = 15;
+    this.shieldMisses = 3;
     this.shieldActive = true;
 
     this.laneFlash = new Float32Array(LANES);
@@ -91,6 +94,9 @@ export class DriveMode {
     this.holdTicks = 0;
     this.mashDone = 0;
     this.rushes = 0;
+    const shield = shieldConfig();
+    this.shieldTime = shield.time;
+    this.shieldMisses = shield.misses;
     this.shieldActive = true;
     this.finished = false;
     this.failed = false;
@@ -193,7 +199,7 @@ export class DriveMode {
     const { audio, notePool, pointers } = this.game;
     const missWindow = TIMING.GOOD * this.windowScale;
 
-    this.shieldActive = songTime < SHIELD_TIME || this.misses < SHIELD_MISSES;
+    this.shieldActive = songTime < this.shieldTime || this.misses < this.shieldMisses;
 
     for (let i = 0; i < notePool.size; i++) {
       const note = notePool.items[i];

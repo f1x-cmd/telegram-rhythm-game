@@ -3,9 +3,10 @@
  * Скрытие текста оценки идёт по часам AudioContext, а не по таймерам.
  */
 
-import { MODES, DRIVE_DIFFICULTY, TRACKS, rankFor, DONATE } from './config.js';
+import { MODES, DRIVE_DIFFICULTY, TRACKS, rankFor } from './config.js';
 import { shareResult, getUser, openDonate } from './telegram.js';
 import { LANGUAGES, t, formatNumber, languagePreference, applyStaticText, isRtl } from './i18n.js';
+import { donateRuntime, liveops, activeTracks } from './liveops.js';
 
 const $ = (selector) => document.querySelector(selector);
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => (
@@ -40,6 +41,7 @@ export class Ui {
       offsetInput: $('#offset-input'),
       offsetValue: $('#offset-value'),
       langSelect: $('#lang-select'),
+      opsBanner: $('#ops-banner'),
       playBtn: $('#play-btn'),
       menuError: $('#menu-error'),
 
@@ -134,7 +136,8 @@ export class Ui {
     `).join('');
     this.el.difficultyList.innerHTML = diffHtml;
 
-    const trackHtml = TRACKS.map((track) => `
+    const tracks = activeTracks();
+    const trackHtml = (tracks.length ? tracks : TRACKS).map((track) => `
       <button type="button" class="track-btn" data-track="${track.id}">
         <span class="track-info">
           <span class="track-title">${track.title}</span>
@@ -162,7 +165,7 @@ export class Ui {
   _fillProfileStatics() {
     if (this.el.clanName) this.el.clanName.placeholder = t('profile.clanName');
     if (this.el.clanCode) this.el.clanCode.placeholder = t('profile.clanCode');
-    this.el.donatePacks.innerHTML = DONATE.packs.map((stars) => `
+    this.el.donatePacks.innerHTML = donateRuntime().packs.map((stars) => `
       <button type="button" class="donate-pack" data-stars="${stars}">${t('profile.stars', { n: stars })}</button>
     `).join('');
   }
@@ -227,7 +230,7 @@ export class Ui {
       const button = event.target.closest('[data-stars]');
       if (!button) return;
       const stars = Number(button.dataset.stars);
-      const result = openDonate(stars, DONATE);
+      const result = openDonate(stars, donateRuntime());
       this.showToast(t(result === 'copy' ? 'profile.donateThanks' : 'profile.donateThanks'));
       this.handlers.onDonate?.(stars, result);
     });
@@ -288,6 +291,23 @@ export class Ui {
     document.body.dataset.mode = state.mode;
 
     if (state.profile) this._paintChip(state.profile);
+
+    const ops = liveops();
+    const banner = ops.maintenance
+      ? (ops.maintenanceText || t('ops.maintenance'))
+      : (ops.banner || '');
+    this.el.opsBanner.textContent = banner;
+    this.el.opsBanner.classList.toggle('hidden', !banner);
+    this.el.opsBanner.classList.toggle('alert', Boolean(ops.maintenance));
+    this.el.playBtn.disabled = Boolean(ops.maintenance);
+    this.el.playBtn.style.opacity = ops.maintenance ? '0.45' : '';
+
+    const upload = document.querySelector('.upload-btn');
+    if (upload) upload.classList.toggle('hidden', ops.allowUpload === false);
+    const donateBar = document.querySelector('.donate-bar');
+    if (donateBar) donateBar.classList.toggle('hidden', ops.allowDonate === false);
+    const inviteBtn = this.el.inviteBtn;
+    if (inviteBtn) inviteBtn.disabled = false;
   }
 
   _offsetLabel(ms) {

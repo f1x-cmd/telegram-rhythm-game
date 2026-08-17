@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rhythm · LiveOps</title>
+  <link rel="stylesheet" href="admin.css">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+  <section id="gate" class="gate">
+    <div class="gate-card">
+      <p class="gate-kicker">RHYTHM</p>
+      <h1>LiveOps</h1>
+      <p class="gate-copy">Панель оператора. Вход по PIN из <code>config.js → ADMIN.pin</code> или по Telegram ID из белого списка.</p>
+      <form id="gate-form">
+        <input id="pin" type="password" autocomplete="current-password" placeholder="PIN">
+        <button type="submit">Войти</button>
+      </form>
+      <p id="gate-error" class="gate-error"></p>
+    </div>
+  </section>
+
+  <div id="shell" class="shell hidden">
+    <aside class="side">
+      <div class="brand">
+        <b>RHYTHM</b>
+        <span>LiveOps</span>
+      </div>
+      <nav id="nav" class="side-nav">
+        <button type="button" class="nav-item selected" data-view="overview">Обзор</button>
+        <button type="button" class="nav-item" data-view="live">События</button>
+        <button type="button" class="nav-item" data-view="catalog">Каталог</button>
+        <button type="button" class="nav-item" data-view="economy">Экономика</button>
+        <button type="button" class="nav-item" data-view="daily">Цель дня</button>
+        <button type="button" class="nav-item" data-view="balance">Баланс</button>
+        <button type="button" class="nav-item" data-view="players">Игроки</button>
+        <button type="button" class="nav-item" data-view="logs">Журнал</button>
+      </nav>
+      <a class="side-link" href="index.html">← К игре</a>
+    </aside>
+
+    <main class="main">
+      <header class="top">
+        <div>
+          <h2 id="view-title">Обзор</h2>
+          <p id="view-sub" class="muted">Состояние продукта на этом устройстве</p>
+        </div>
+        <div class="top-actions">
+          <span id="live-pill" class="pill">LIVE</span>
+          <button id="save-btn" type="button" class="primary">Сохранить</button>
+        </div>
+      </header>
+
+      <p id="flash" class="flash hidden"></p>
+
+      <!-- Обзор -->
+      <section class="view active" data-view="overview">
+        <div id="kpi-row" class="kpi-row"></div>
+        <div class="grid-2">
+          <article class="card">
+            <h3>Партии по дням</h3>
+            <div id="day-bars" class="bars"></div>
+          </article>
+          <article class="card">
+            <h3>Режимы и треки</h3>
+            <div id="split-bars" class="bars"></div>
+          </article>
+        </div>
+        <article class="card">
+          <h3>Сейчас в проде</h3>
+          <dl id="prod-dl" class="facts"></dl>
+        </article>
+      </section>
+
+      <!-- События -->
+      <section class="view" data-view="live">
+        <article class="card danger-card">
+          <label class="toggle">
+            <input id="maintenance" type="checkbox">
+            <span>Техработы — игра не стартует</span>
+          </label>
+          <label>Текст техработ
+            <input id="maintenanceText" type="text" placeholder="Короткий перерыв. Вернитесь через 10 минут.">
+          </label>
+        </article>
+        <article class="card">
+          <h3>Баннер в меню</h3>
+          <label>Сообщение игрокам
+            <input id="banner" type="text" placeholder="Weekend Pulse: очки ×1.5 до воскресенья">
+          </label>
+          <div class="grid-3">
+            <label>Имя ивента
+              <input id="eventName" type="text" placeholder="Weekend Pulse">
+            </label>
+            <label>Множитель очков
+              <input id="eventMult" type="number" min="1" max="5" step="0.1" value="1">
+            </label>
+            <label>До (локальное время)
+              <input id="eventUntil" type="datetime-local">
+            </label>
+          </div>
+          <label>Режим на старте меню
+            <select id="featuredMode">
+              <option value="">Не менять</option>
+              <option value="relax">RELAX</option>
+              <option value="drive">DRIVE</option>
+            </select>
+          </label>
+        </article>
+      </section>
+
+      <!-- Каталог -->
+      <section class="view" data-view="catalog">
+        <article class="card">
+          <h3>Треки</h3>
+          <p class="muted">Выключенный трек пропадает из меню. Идущая партия не рвётся.</p>
+          <div id="track-toggles" class="track-toggles"></div>
+          <label class="toggle">
+            <input id="allowUpload" type="checkbox" checked>
+            <span>Разрешить загрузку своего трека</span>
+          </label>
+        </article>
+      </section>
+
+      <!-- Экономика -->
+      <section class="view" data-view="economy">
+        <article class="card">
+          <h3>Telegram Mini App</h3>
+          <div class="grid-2">
+            <label>Bot username
+              <input id="telegramBot" type="text" placeholder="rhythm_game_bot">
+            </label>
+            <label>Short name приложения
+              <input id="telegramApp" type="text" placeholder="rhythm">
+            </label>
+          </div>
+        </article>
+        <article class="card">
+          <h3>Донат Stars</h3>
+          <label class="toggle">
+            <input id="allowDonate" type="checkbox" checked>
+            <span>Показывать блок доната в кабинете</span>
+          </label>
+          <label>Пакеты через запятую
+            <input id="donatePacks" type="text" placeholder="50, 150, 500">
+          </label>
+          <div class="grid-2">
+            <label>URL доната ({stars} подставится)
+              <input id="donateUrl" type="url" placeholder="https://t.me/tribute/app">
+            </label>
+            <label>Бот доната
+              <input id="donateBot" type="text" placeholder="donate_bot">
+            </label>
+          </div>
+        </article>
+      </section>
+
+      <!-- Цель дня -->
+      <section class="view" data-view="daily">
+        <article class="card">
+          <h3>Пул заданий</h3>
+          <div class="grid-3" id="daily-targets"></div>
+          <label>Принудительно сегодня
+            <select id="forceDaily">
+              <option value="">Авто по дате</option>
+              <option value="notes">Ноты</option>
+              <option value="score">Очки</option>
+              <option value="combo">Комбо</option>
+              <option value="perfect">PERFECT</option>
+              <option value="flow">Поток</option>
+            </select>
+          </label>
+          <button id="apply-daily-btn" type="button" class="ghost">Применить к сегодняшней цели</button>
+          <p id="daily-now" class="muted"></p>
+        </article>
+      </section>
+
+      <!-- Баланс -->
+      <section class="view" data-view="balance">
+        <article class="card">
+          <h3>Плотность нот (NPS)</h3>
+          <div class="grid-4">
+            <label>RELAX <input id="npsRelax" type="number" min="0.4" max="8" step="0.1"></label>
+            <label>Easy <input id="npsEasy" type="number" min="0.4" max="12" step="0.1"></label>
+            <label>Medium <input id="npsMedium" type="number" min="0.4" max="12" step="0.1"></label>
+            <label>Hard <input id="npsHard" type="number" min="0.4" max="12" step="0.1"></label>
+          </div>
+        </article>
+        <article class="card">
+          <h3>Щит новичка (DRIVE)</h3>
+          <div class="grid-2">
+            <label>Секунд на старте <input id="shieldTime" type="number" min="0" max="60"></label>
+            <label>Первых промахов <input id="shieldMisses" type="number" min="0" max="20"></label>
+          </div>
+        </article>
+      </section>
+
+      <!-- Игроки -->
+      <section class="view" data-view="players">
+        <article class="card">
+          <h3>Этот аккаунт</h3>
+          <dl id="me-dl" class="facts"></dl>
+        </article>
+        <article class="card">
+          <h3>Сеть (друзья / вызовы / клан)</h3>
+          <table class="table">
+            <thead><tr><th>#</th><th>Игрок</th><th>ID</th><th>Очки</th></tr></thead>
+            <tbody id="network-body"></tbody>
+          </table>
+        </article>
+        <article class="card">
+          <h3>Рекорды</h3>
+          <table class="table">
+            <thead><tr><th>Ключ</th><th>Счёт</th></tr></thead>
+            <tbody id="records-body"></tbody>
+          </table>
+        </article>
+        <article class="card">
+          <h3>Ограничения</h3>
+          <div class="row">
+            <input id="ban-id" type="text" placeholder="player id">
+            <button id="ban-btn" type="button" class="ghost">Ограничить</button>
+          </div>
+          <ul id="ban-list" class="ban-list"></ul>
+        </article>
+      </section>
+
+      <!-- Журнал -->
+      <section class="view" data-view="logs">
+        <article class="card">
+          <div class="row">
+            <h3>Телеметрия партий</h3>
+            <button id="clear-tel-btn" type="button" class="ghost">Очистить</button>
+          </div>
+          <table class="table">
+            <thead><tr><th>Время</th><th>Тип</th><th>Детали</th></tr></thead>
+            <tbody id="tel-body"></tbody>
+          </table>
+        </article>
+        <article class="card">
+          <h3>Аудит LiveOps</h3>
+          <table class="table">
+            <thead><tr><th>Время</th><th>Кто</th><th>Действие</th></tr></thead>
+            <tbody id="audit-body"></tbody>
+          </table>
+          <div class="row">
+            <button id="export-btn" type="button" class="ghost">Скачать JSON</button>
+            <label class="file-lab">Загрузить JSON
+              <input id="import-file" type="file" accept="application/json">
+            </label>
+            <button id="reset-btn" type="button" class="danger">Сбросить LiveOps</button>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="js/admin.js"></script>
+</body>
+</html>

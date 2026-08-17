@@ -3,7 +3,7 @@
  * Игровой цикл целиком опирается на AudioContext.currentTime.
  */
 
-import { MODES, TRACKS, RELAX, DRIVE_DIFFICULTY, SHIELD_TIME, SHIELD_MISSES } from './config.js';
+import { MODES, TRACKS, RELAX, DRIVE_DIFFICULTY } from './config.js';
 import { initTelegram, storage } from './telegram.js';
 import { AudioEngine } from './audio-engine.js';
 import { analyzeAudio, buildDriveChart, buildRelaxChart } from './analysis.js';
@@ -19,8 +19,12 @@ import { t, loadLanguage, setLanguage, applyStaticText } from './i18n.js';
 import { loadCareer, addCareer } from './career.js';
 import {
   loadSocial, snapshot as socialSnapshot, shareInvite, createClan, joinClan,
-  leaveClan, takeToast, syncSelfScore,
+  leaveClan, takeToast, syncSelfScore, me,
 } from './social.js';
+import {
+  loadLiveOps, liveops, activeTracks, scoreMultiplier, shieldConfig, isBanned,
+} from './liveops.js';
+import { loadTelemetry, logEvent } from './telemetry.js';
 
 const OFFSET_KEY = 'audio_offset';
 
@@ -68,6 +72,7 @@ class Game {
       onCreateClan: (name) => this._createClan(name),
       onJoinClan: (code) => this._joinClan(code),
       onLeaveClan: () => this._leaveClan(),
+      onDonate: (stars) => logEvent('donate', { stars }),
     });
     this.hud = this.ui.hud;
 
@@ -96,10 +101,18 @@ class Game {
       this.audio.offset = value / 1000;
     }
     await loadRecords();
+    await loadLiveOps();
+    await loadTelemetry();
     await loadDaily();
     await loadCareer();
     await loadSocial();
     const toast = takeToast();
+    const featured = liveops().featuredMode;
+    if (featured && MODES[featured]) this.modeId = featured;
+    const tracks = activeTracks();
+    if (tracks.length && !tracks.some((item) => item.id === this.trackId)) {
+      this.trackId = tracks[0].id;
+    }
     this._syncMenu();
     if (toast) this.ui.showToast(t(toast));
   }
@@ -121,14 +134,16 @@ class Game {
     if (!MODES[id]) return;
     this.modeId = id;
     // Подсказываем подходящий трек при переключении режима
-    const suitable = TRACKS.find((track) => track.mood === id);
+    const tracks = activeTracks();
+    const suitable = tracks.find((track) => track.mood === id) ?? tracks[0];
     if (suitable && !this.customFile) this.trackId = suitable.id;
     this._syncMenu();
   }
 
   _syncMenu() {
+    const tracks = activeTracks();
     const records = {};
-    for (const track of TRACKS) {
+    for (const track of tracks) {
       records[track.id] = bestFor(this.modeId, track.id, this.difficulty);
     }
 
@@ -154,6 +169,7 @@ class Game {
 
   _invite(kind) {
     const result = shareInvite(kind);
+    logEvent('invite', { kind });
     if (!result.shared) this.ui.showToast(t('profile.copied'));
   }
 
@@ -257,6 +273,20 @@ class Game {
 
   async start() {
     if (this.state === 'loading') return;
+    if (isBanned(me().id)) {
+      this.ui.showError(t('ops.banned'));
+      return;
+    }
+    if (liveops().maintenance) {
+      this.ui.showError(liveops().maintenanceText || t('ops.maintenance'));
+      return;
+    }
+    const catalog = activeTracks();
+    if (!this.customFile && catalog.length === 0) {
+      this.ui.showError(t('ops.noTracks'));
+      return;
+    }
+
     this.state = 'loading';
     this.ui.showError('');
 
@@ -342,10 +372,11 @@ class Game {
     this.mode.render(ctx, now, songTime);
     ctx.restore();
 
-    const shield = this.modeId === 'drive'
-      ? this.mode.shieldActive && (songTime < SHIELD_TIME || this.mode.misses < SHIELD_MISSES)
+    const shield = shieldConfig();
+    const shieldOn = this.modeId === 'drive'
+      ? this.mode.shieldActive && (songTime < shield.time || this.mode.misses < shield.misses)
       : this.mode.flowActive;
-    this.ui.tick(now, this.mode, shield);
+    this.ui.tick(now, this.mode, shieldOn);
 
     if (this.mode.finished) {
       this._finish();
@@ -364,6 +395,12 @@ class Game {
     const stats = this.mode.stats();
     this.mode.stop();
 
+    const mult = scoreMultiplier();
+    if (mult > 1) {
+      stats.score = Math.round(stats.score * mult);
+      if (stats.metrics) stats.metrics.score = stats.score;
+    }
+
     const track = TRACKS.find((item) => item.id === this.trackId) ?? TRACKS[0];
     const mode = MODES[this.modeId];
     // Рекорды ведутся только по встроенным трекам: свой файл каждый раз новый
@@ -373,6 +410,15 @@ class Game {
     const daily = addDailyResult(stats);
     addCareer({ ...stats, mode: this.modeId });
     syncSelfScore();
+    logEvent('play', {
+      mode: this.modeId,
+      track: this.customFile ? 'custom' : this.trackId,
+      difficulty: this.difficulty,
+      score: stats.score,
+      accuracy: stats.accuracy,
+      failed: Boolean(stats.failed),
+      mult,
+    });
 
     this.ui.showResult(stats, {
       modeTitle: mode.title,
