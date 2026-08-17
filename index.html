@@ -1,95 +1,130 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>Rhythm Game</title>
+  <meta name="theme-color" content="#08080f">
+  <title>Rhythm Game — Relax &amp; Drive</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
-<body>
+<body data-mode="relax">
   <div id="app">
-    <!-- Главное меню -->
+
+    <!-- ─── Меню ─────────────────────────────────────────────────────────── -->
     <section id="menu" class="screen active">
       <header class="menu-header">
-        <h1>Rhythm Game</h1>
-        <p class="menu-subtitle">Telegram Hyper-Casual</p>
+        <h1>RHYTHM</h1>
+        <p class="menu-subtitle" data-i18n="app.subtitle"></p>
       </header>
 
-      <div class="menu-section">
-        <h2>Выбор трека</h2>
-        <ul id="track-list" class="track-list">
-          <li>
-            <button type="button" class="track-btn selected" data-track="audio/slow60.mp3">
-              Slow 60 BPM
-            </button>
-          </li>
-          <li>
-            <button type="button" class="track-btn" data-track="audio/Neon Horizon.mp3">
-              Neon Horizon
-            </button>
-          </li>
-          <li>
-            <button type="button" class="track-btn" data-track="audio/Neon Pulse.mp3">
-              Neon Pulse
-            </button>
-          </li>
-          <li>
-            <button type="button" class="track-btn" data-track="audio/Neon Velocity.mp3">
-              Neon Velocity
-            </button>
-          </li>
-        </ul>
-        <p id="server-hint" class="server-hint"></p>
+      <div class="lang-row">
+        <label class="lang-label" for="lang-select" data-i18n="section.language"></label>
+        <select id="lang-select" class="lang-select"></select>
+      </div>
+
+      <div class="daily-card">
+        <div class="daily-head">
+          <span class="daily-tag" data-i18n="daily.tag"></span>
+          <span id="daily-status" class="daily-status"></span>
+        </div>
+        <p id="daily-title" class="daily-title">—</p>
+        <div class="bar-outer"><div id="daily-fill" class="bar-fill"></div></div>
       </div>
 
       <div class="menu-section">
-        <label class="upload-btn" for="custom-track-input">
-          Загрузить свой трек
-        </label>
-        <input id="custom-track-input" type="file" accept="audio/*" hidden>
+        <h2 data-i18n="section.mode"></h2>
+        <div id="mode-list" class="mode-list"></div>
+      </div>
+
+      <div class="menu-section hidden" id="difficulty-row">
+        <h2 data-i18n="section.difficulty"></h2>
+        <div id="difficulty-list" class="chip-row"></div>
+      </div>
+
+      <div class="menu-section">
+        <h2 data-i18n="section.track"></h2>
+        <div id="track-list" class="track-list"></div>
+
+        <label class="upload-btn" for="custom-track" data-i18n="menu.upload"></label>
+        <input id="custom-track" type="file" accept="audio/*" hidden>
         <p id="custom-track-name" class="custom-track-name"></p>
       </div>
 
-      <button id="start-btn" type="button" class="primary-btn">Играть</button>
+      <details class="menu-section settings">
+        <summary data-i18n="menu.calibration"></summary>
+        <div class="offset-row">
+          <input id="offset-input" type="range" min="-200" max="200" step="5" value="0">
+          <span id="offset-value" class="offset-value">0</span>
+        </div>
+        <p class="hint" data-i18n="menu.calibrationHint"></p>
+      </details>
+
+      <p id="menu-error" class="menu-error"></p>
+      <button id="play-btn" type="button" class="primary-btn"></button>
     </section>
 
-    <!-- Игровой экран -->
+    <!-- ─── Игра ─────────────────────────────────────────────────────────── -->
     <section id="game-screen" class="screen">
-      <!-- HUD в Spawn Zone (0–15% высоты) -->
-      <div id="hud-top" class="hud-top">
-        <div class="hud-row">
-          <span id="score-display">0</span>
-          <span id="combo-display">x0</span>
-        </div>
-        <div id="judgment-display" class="judgment-display"></div>
-      </div>
-
       <canvas id="game-canvas"></canvas>
 
-      <!-- HP в Touch Target Zone (70–100%) -->
-      <div id="hud-bottom" class="hud-bottom">
-        <div class="hp-label">HP</div>
-        <div class="hp-bar-outer">
-          <div id="hp-bar-fill" class="hp-bar-fill"></div>
+      <!-- Spawn Zone: 0–15% -->
+      <div class="hud-top">
+        <div class="hud-row">
+          <span id="score" class="score">0</span>
+          <span id="mode-badge" class="mode-badge">RELAX</span>
+          <span id="combo" class="combo"></span>
         </div>
-        <div id="shield-indicator" class="shield-indicator">🛡 Novice Shield</div>
+        <div id="judgment" class="judgment"></div>
       </div>
 
-      <button id="back-btn" type="button" class="back-btn" aria-label="Назад в меню">✕</button>
+      <!-- Touch Target Zone: 70–100% -->
+      <div class="hud-bottom">
+        <div id="shield" class="shield hidden"></div>
+        <div class="bar-row">
+          <span id="bar-label" class="bar-label">FLOW</span>
+          <div class="bar-outer"><div id="bar-fill" class="bar-fill"></div></div>
+        </div>
+      </div>
+
+      <button id="back-btn" type="button" class="back-btn" data-i18n="aria.exit" data-i18n-attr="aria-label">✕</button>
+
+      <div id="loading" class="loading hidden">
+        <div class="spinner"></div>
+        <p id="loading-text" data-i18n="load.default"></p>
+      </div>
     </section>
 
-    <!-- Экран Game Over -->
+    <!-- ─── Результат ────────────────────────────────────────────────────── -->
     <section id="result-screen" class="screen">
-      <h2>Game Over</h2>
-      <p class="result-score">Score: <span id="final-score">0</span></p>
-      <p class="result-combo">Max Combo: <span id="final-combo">0</span></p>
-      <button id="retry-btn" type="button" class="primary-btn">Ещё раз</button>
-      <button id="menu-btn" type="button" class="secondary-btn">Меню</button>
+      <h2 id="result-title" data-i18n="result.driveDone"></h2>
+      <p id="record-badge" class="record-badge hidden" data-i18n="result.record"></p>
+
+      <div class="result-main">
+        <div id="result-rank" class="result-rank">S</div>
+        <div class="result-score-box">
+          <span id="result-score" class="result-score">0</span>
+          <span class="result-score-label" data-i18n="result.points"></span>
+        </div>
+      </div>
+
+      <ul id="result-rows" class="result-rows"></ul>
+      <p id="result-daily" class="result-daily"></p>
+
+      <img id="share-image" class="share-image" data-i18n="result.cardAlt" data-i18n-attr="alt">
+
+      <div class="result-actions">
+        <button id="share-btn" type="button" class="secondary-btn" data-i18n="result.share"></button>
+        <button id="download-btn" type="button" class="secondary-btn" data-i18n="result.download"></button>
+      </div>
+
+      <button id="retry-btn" type="button" class="primary-btn" data-i18n="result.retry"></button>
+      <button id="menu-btn" type="button" class="ghost-btn" data-i18n="result.menu"></button>
     </section>
+
   </div>
 
-  <script src="game.js"></script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>

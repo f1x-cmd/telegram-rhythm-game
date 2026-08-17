@@ -1,0 +1,328 @@
+/**
+ * Точка входа: связывает аудио, анализ, режимы и интерфейс.
+ * Игровой цикл целиком опирается на AudioContext.currentTime.
+ */
+
+import { MODES, TRACKS, RELAX, DRIVE_DIFFICULTY, SHIELD_TIME, SHIELD_MISSES } from './config.js';
+import { initTelegram, storage } from './telegram.js';
+import { AudioEngine } from './audio-engine.js';
+import { analyzeAudio, buildDriveChart, buildRelaxChart } from './analysis.js';
+import { createPool, createNote } from './pools.js';
+import { Fx } from './fx.js';
+import { PointerTracker } from './input.js';
+import { RelaxMode } from './relax.js';
+import { DriveMode } from './drive.js';
+import { Ui } from './ui.js';
+import { loadRecords, bestFor, submit } from './records.js';
+import { loadDaily, status as dailyStatus, addResult as addDailyResult } from './daily.js';
+import { t, loadLanguage, setLanguage, applyStaticText } from './i18n.js';
+
+const OFFSET_KEY = 'audio_offset';
+
+class Game {
+  constructor() {
+    this.audio = new AudioEngine();
+    this.fx = new Fx();
+    this.notePool = createPool(4000, createNote);
+    this.pointers = new PointerTracker();
+
+    this.canvas = document.getElementById('game-canvas');
+    this.ctx = this.canvas.getContext('2d');
+    this.field = document.getElementById('game-screen');
+
+    this.width = 0;
+    this.height = 0;
+    this.dpr = 1;
+
+    this.state = 'menu';
+    this.mode = null;
+    this.modeId = 'relax';
+    this.difficulty = 'medium';
+    this.trackId = TRACKS[0].id;
+    this.customFile = null;
+    this.offsetMs = 0;
+
+    this.relax = new RelaxMode(this);
+    this.drive = new DriveMode(this);
+
+    this.ui = new Ui({
+      onModeChange: (id) => this._selectMode(id),
+      onDifficultyChange: (key) => { this.difficulty = key; this._syncMenu(); },
+      onTrackChange: (id) => { this.trackId = id; this.customFile = null; this._syncMenu(); },
+      onCustomFile: (file) => { this.customFile = file; this._syncMenu(); },
+      onOffsetChange: (ms) => this._setOffset(ms),
+      onLanguageChange: (code) => this._setLanguage(code),
+      onPlay: () => this.start(),
+      onBack: () => this._toMenu(),
+      onRetry: () => this.start(),
+      onMenu: () => this._toMenu(),
+    });
+    this.hud = this.ui.hud;
+
+    this._rafId = 0;
+    this._lastTime = 0;
+
+    this._bindEvents();
+    this._resize();
+    applyStaticText();
+    this._loadSettings();
+    this._syncMenu();
+  }
+
+  // ── Настройки и меню ─────────────────────────────────────────────────────
+
+  async _loadSettings() {
+    // Ручной выбор языка мог быть сохранён ранее — он важнее автоопределения
+    await loadLanguage();
+    this.ui.retranslate();
+
+    const saved = await storage.get(OFFSET_KEY);
+    const value = Number(saved);
+    if (Number.isFinite(value) && value >= -200 && value <= 200) {
+      this.offsetMs = value;
+      this.audio.offset = value / 1000;
+    }
+    await loadRecords();
+    await loadDaily();
+    this._syncMenu();
+  }
+
+  _setOffset(ms) {
+    this.offsetMs = Math.max(-200, Math.min(200, Math.round(ms)));
+    this.audio.offset = this.offsetMs / 1000;
+    storage.set(OFFSET_KEY, this.offsetMs);
+  }
+
+  _setLanguage(code) {
+    setLanguage(code);
+    this.ui.retranslate();
+    this._syncMenu();
+  }
+
+  _selectMode(id) {
+    if (!MODES[id]) return;
+    this.modeId = id;
+    // Подсказываем подходящий трек при переключении режима
+    const suitable = TRACKS.find((track) => track.mood === id);
+    if (suitable && !this.customFile) this.trackId = suitable.id;
+    this._syncMenu();
+  }
+
+  _syncMenu() {
+    const records = {};
+    for (const track of TRACKS) {
+      records[track.id] = bestFor(this.modeId, track.id, this.difficulty);
+    }
+
+    this.ui.syncMenu({
+      mode: this.modeId,
+      difficulty: this.difficulty,
+      trackId: this.trackId,
+      customFile: this.customFile,
+      offsetMs: this.offsetMs,
+      records,
+      daily: dailyStatus(),
+    });
+  }
+
+  _toMenu() {
+    this.abort();
+    this.ui.showScreen('menu');
+    this._syncMenu();
+  }
+
+  // ── События ──────────────────────────────────────────────────────────────
+
+  _bindEvents() {
+    window.addEventListener('resize', () => this._resize());
+    window.addEventListener('orientationchange', () => this._resize());
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        this.audio.pause();
+        cancelAnimationFrame(this._rafId);
+        this._rafId = 0;
+      } else if (this.state === 'playing') {
+        this.audio.resume();
+        this._lastTime = this.audio.time;
+        this._loop();
+      }
+    });
+
+    const field = this.field;
+    field.addEventListener('pointerdown', (event) => {
+      if (this.state !== 'playing') return;
+      if (event.target.closest('button')) return;
+      event.preventDefault();
+      try { field.setPointerCapture(event.pointerId); } catch (_) { /* не критично */ }
+      const { x, y } = this._localPoint(event);
+      const slot = this.pointers.down(event.pointerId, x, y, this.audio.time);
+      if (slot) this.mode?.onDown(slot);
+    });
+
+    field.addEventListener('pointermove', (event) => {
+      if (this.state !== 'playing') return;
+      const { x, y } = this._localPoint(event);
+      const slot = this.pointers.move(event.pointerId, x, y);
+      if (slot) this.mode?.onMove(slot);
+    });
+
+    const release = (event) => {
+      if (this.state !== 'playing') return;
+      const slot = this.pointers.up(event.pointerId);
+      if (slot) this.mode?.onUp(slot);
+    };
+    field.addEventListener('pointerup', release);
+    field.addEventListener('pointercancel', release);
+    field.addEventListener('lostpointercapture', release);
+  }
+
+  _localPoint(event) {
+    const rect = this.canvas.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  }
+
+  _resize() {
+    const rect = this.field.getBoundingClientRect();
+    this.width = Math.max(1, rect.width);
+    this.height = Math.max(1, rect.height);
+    this.dpr = Math.min(2, window.devicePixelRatio || 1);
+    this.canvas.width = Math.round(this.width * this.dpr);
+    this.canvas.height = Math.round(this.height * this.dpr);
+  }
+
+  _nextFrame() {
+    return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+  }
+
+  // ── Запуск партии ────────────────────────────────────────────────────────
+
+  async start() {
+    if (this.state === 'loading') return;
+    this.state = 'loading';
+    this.ui.showError('');
+
+    const track = TRACKS.find((item) => item.id === this.trackId) ?? TRACKS[0];
+
+    try {
+      this.ui.showScreen('game');
+      this.ui.prepareHud(this.modeId);
+      this.ui.setLoading(t('load.track'));
+      await this._nextFrame();
+
+      await this.audio.init();
+      if (this.customFile) await this.audio.loadFile(this.customFile);
+      else await this.audio.loadUrl(track.url);
+
+      this.ui.setLoading(t('load.analyze'));
+      await this._nextFrame();
+      await this._nextFrame();
+
+      const analysis = analyzeAudio(this.audio.buffer);
+      const chart = this.modeId === 'relax'
+        ? buildRelaxChart(analysis)
+        : buildDriveChart(analysis, this.difficulty);
+
+      if (chart.notes.length === 0) {
+        throw new Error(t('error.rhythm'));
+      }
+
+      this._resize();
+      this.fx.reset();
+      this.pointers.reset();
+
+      this.mode = this.modeId === 'relax' ? this.relax : this.drive;
+      this.mode.start(chart, this.difficulty);
+
+      const approach = this.modeId === 'relax' ? RELAX.approach : DRIVE_DIFFICULTY[this.difficulty].approach;
+      this.audio.startMusic(approach + 0.7);
+
+      this.ui.setLoading('');
+      this.state = 'playing';
+      this._lastTime = this.audio.time;
+      this._loop();
+    } catch (error) {
+      console.error(error);
+      this.state = 'menu';
+      this.ui.setLoading('');
+      this.ui.showScreen('menu');
+      this.ui.showError(error.message || t('error.start'));
+    }
+  }
+
+  abort() {
+    cancelAnimationFrame(this._rafId);
+    this._rafId = 0;
+    this.audio.stopMusic();
+    this.mode?.stop();
+    this.pointers.reset();
+    this.state = 'menu';
+  }
+
+  _loop() {
+    if (this.state !== 'playing') return;
+
+    const now = this.audio.time;
+    let dt = now - this._lastTime;
+    this._lastTime = now;
+    if (!(dt > 0)) dt = 0;
+    dt = Math.min(dt, 1 / 30); // ограничение шага при низком FPS
+
+    const songTime = this.audio.songTime();
+    this.audio.sampleSpectrum();
+
+    this.ui.setNow(now);
+    this.mode.update(now, songTime, dt);
+    this.fx.update(dt, this.width, this.height);
+
+    const ctx = this.ctx;
+    const shake = this.fx.shakeOffset(now);
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.clearRect(0, 0, this.width, this.height);
+    ctx.save();
+    ctx.translate(shake, shake * 0.35);
+    this.mode.render(ctx, now, songTime);
+    ctx.restore();
+
+    const shield = this.modeId === 'drive'
+      ? this.mode.shieldActive && (songTime < SHIELD_TIME || this.mode.misses < SHIELD_MISSES)
+      : this.mode.flowActive;
+    this.ui.tick(now, this.mode, shield);
+
+    if (this.mode.finished) {
+      this._finish();
+      return;
+    }
+
+    this._rafId = requestAnimationFrame(() => this._loop());
+  }
+
+  _finish() {
+    cancelAnimationFrame(this._rafId);
+    this._rafId = 0;
+    this.state = 'result';
+    this.audio.stopMusic();
+
+    const stats = this.mode.stats();
+    this.mode.stop();
+
+    const track = TRACKS.find((item) => item.id === this.trackId) ?? TRACKS[0];
+    const mode = MODES[this.modeId];
+    // Рекорды ведутся только по встроенным трекам: свой файл каждый раз новый
+    const record = this.customFile
+      ? null
+      : submit(this.modeId, this.trackId, this.difficulty, stats.score);
+    const daily = addDailyResult(stats);
+
+    this.ui.showResult(stats, {
+      modeTitle: mode.title,
+      accent: mode.accent,
+      trackTitle: this.customFile ? this.customFile.name.replace(/\.[^.]+$/, '') : track.title,
+      record,
+      daily,
+    });
+  }
+}
+
+initTelegram();
+window.game = new Game();
