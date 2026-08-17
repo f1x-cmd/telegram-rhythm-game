@@ -3,10 +3,11 @@
  * Скрытие текста оценки идёт по часам AudioContext, а не по таймерам.
  */
 
-import { MODES, DRIVE_DIFFICULTY, TRACKS, rankFor } from './config.js';
+import { MODES, DRIVE_DIFFICULTY, rankFor } from './config.js';
 import { shareResult, getUser, openDonate } from './telegram.js';
 import { LANGUAGES, t, formatNumber, languagePreference, applyStaticText, isRtl } from './i18n.js';
-import { donateRuntime, liveops, activeTracks } from './liveops.js';
+import { donateRuntime, liveops, activeTracks, isBanned } from './liveops.js';
+import { me } from './social.js';
 
 const $ = (selector) => document.querySelector(selector);
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => (
@@ -136,8 +137,22 @@ export class Ui {
     `).join('');
     this.el.difficultyList.innerHTML = diffHtml;
 
+    this._fillTracks();
+
+    const langHtml = [{ code: 'auto', name: t('lang.auto') }, ...LANGUAGES]
+      .map((lang) => `<option value="${lang.code}">${lang.name}</option>`)
+      .join('');
+    this.el.langSelect.innerHTML = langHtml;
+    this.el.langSelect.value = languagePreference();
+  }
+
+  _fillTracks() {
     const tracks = activeTracks();
-    const trackHtml = (tracks.length ? tracks : TRACKS).map((track) => `
+    if (!tracks.length) {
+      this.el.trackList.innerHTML = `<p class="hint">${t('ops.noTracks')}</p>`;
+      return;
+    }
+    this.el.trackList.innerHTML = tracks.map((track) => `
       <button type="button" class="track-btn" data-track="${track.id}">
         <span class="track-info">
           <span class="track-title">${track.title}</span>
@@ -146,13 +161,6 @@ export class Ui {
         <span class="track-mood">${t(`mood.${track.mood}`)}</span>
       </button>
     `).join('');
-    this.el.trackList.innerHTML = trackHtml;
-
-    const langHtml = [{ code: 'auto', name: t('lang.auto') }, ...LANGUAGES]
-      .map((lang) => `<option value="${lang.code}">${lang.name}</option>`)
-      .join('');
-    this.el.langSelect.innerHTML = langHtml;
-    this.el.langSelect.value = languagePreference();
   }
 
   /** Перерисовка после смены языка: статика + собранные из шаблонов списки. */
@@ -253,6 +261,9 @@ export class Ui {
   }
 
   syncMenu(state) {
+    this._fillTracks();
+    this._fillProfileStatics();
+
     for (const button of this.el.modeList.querySelectorAll('[data-mode]')) {
       button.classList.toggle('selected', button.dataset.mode === state.mode);
     }
@@ -299,8 +310,10 @@ export class Ui {
     this.el.opsBanner.textContent = banner;
     this.el.opsBanner.classList.toggle('hidden', !banner);
     this.el.opsBanner.classList.toggle('alert', Boolean(ops.maintenance));
-    this.el.playBtn.disabled = Boolean(ops.maintenance);
-    this.el.playBtn.style.opacity = ops.maintenance ? '0.45' : '';
+    const noCatalog = activeTracks().length === 0 && !state.customFile;
+    const locked = Boolean(ops.maintenance) || isBanned(me().id) || noCatalog;
+    this.el.playBtn.disabled = locked;
+    this.el.playBtn.style.opacity = locked ? '0.45' : '';
 
     const upload = document.querySelector('.upload-btn');
     if (upload) upload.classList.toggle('hidden', ops.allowUpload === false);

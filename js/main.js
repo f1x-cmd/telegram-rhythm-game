@@ -82,7 +82,7 @@ class Game {
     this._bindEvents();
     this._resize();
     applyStaticText();
-    this._loadSettings();
+    this._ready = this._loadSettings();
     this._syncMenu();
     this.ui.showScreen('menu');
   }
@@ -273,24 +273,35 @@ class Game {
 
   async start() {
     if (this.state === 'loading') return;
+    await this._ready;
+    await loadLiveOps();
+
     if (isBanned(me().id)) {
       this.ui.showError(t('ops.banned'));
+      this._syncMenu();
       return;
     }
     if (liveops().maintenance) {
       this.ui.showError(liveops().maintenanceText || t('ops.maintenance'));
+      this._syncMenu();
       return;
     }
     const catalog = activeTracks();
-    if (!this.customFile && catalog.length === 0) {
-      this.ui.showError(t('ops.noTracks'));
-      return;
+    if (!this.customFile) {
+      if (!catalog.length) {
+        this.ui.showError(t('ops.noTracks'));
+        this._syncMenu();
+        return;
+      }
+      if (!catalog.some((item) => item.id === this.trackId)) {
+        this.trackId = catalog[0].id;
+      }
     }
 
     this.state = 'loading';
     this.ui.showError('');
 
-    const track = TRACKS.find((item) => item.id === this.trackId) ?? TRACKS[0];
+    const track = TRACKS.find((item) => item.id === this.trackId) ?? catalog[0] ?? TRACKS[0];
 
     try {
       this.ui.showScreen('game');
