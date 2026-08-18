@@ -505,8 +505,10 @@ class Game {
 
     const shield = shieldConfig();
     const shieldOn = this.modeId === 'drive'
-      ? this.mode.shieldActive && (songTime < shield.time || this.mode.misses < shield.misses)
-      : this.mode.flowActive;
+      ? (this.mode.diff?.canFail
+        ? this.mode.shieldActive && (songTime < shield.time || this.mode.misses < shield.misses)
+        : this.mode.feverActive)
+      : this.mode.blissActive;
     this.ui.tick(now, this.mode, shieldOn);
 
     if (this.mode.finished) {

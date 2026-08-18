@@ -35,11 +35,29 @@ export const COLORS = {
   swipe: '#00FF66',
   avoid: '#FF3300',
   mash:  '#FFAA00',
-  orb:   '#6FE9FF',
-  bloom: '#B98CFF',
-  chain: '#7CFFC4',
-  still: '#FFD98C',
+  orb:   '#8FE9FF',
+  bloom: '#C4A8FF',
+  chain: '#9ADBC4',
+  still: '#FFE4A8',
+  glass: '#E8F4FF',
+  rage:  '#FF4D2E',
+  fever: '#FFD166',
 };
+
+/** Прирост ярости DRIVE за попадание. */
+export const RAGE_GAIN = {
+  PERFECT_PLUS: 14,
+  PERFECT: 10,
+  GREAT: 7,
+  GOOD: 4,
+  HOLD_TICK: 1,
+  MASH_FINISH: 18,
+  DODGE: 6,
+};
+
+export const RAGE_MISS = 9;
+export const RAGE_FEVER_TIME = 14;
+export const DRIVE_SMASH_ZONE_Y = 0.52; // доля экрана — зона «бей куда угодно»
 
 /** Нота-«долбилка» в DRIVE: серия быстрых тапов по дорожке. */
 export const MASH = { taps: 5, window: 0.75 };
@@ -62,44 +80,43 @@ export const CUSTOM_AUDIO_MAX_BYTES = 20 * 1024 * 1024;
 /** Настройки сложности режима DRIVE. Названия — в i18n (ключи diff.*). */
 export const DRIVE_DIFFICULTY = {
   easy: {
-    nps: 1.8, approach: 2.5, windowScale: 1.75,
-    chord: 1, types: ['tap', 'hold'], hpDrain: 0.5,
-    laneSnap: true, holdLanePad: 0.42,
+    nps: 1.5, approach: 2.7, windowScale: 1.85,
+    chord: 1, types: ['tap'], hpDrain: 0.45,
+    laneSnap: true, holdLanePad: 0.5, smashZone: true, canFail: false,
   },
   medium: {
-    nps: 2.6, approach: 2.15, windowScale: 1.5,
-    chord: 1, types: ['tap', 'hold', 'swipe'], hpDrain: 0.7,
-    laneSnap: true, holdLanePad: 0.32,
+    nps: 2.2, approach: 2.25, windowScale: 1.55,
+    chord: 1, types: ['tap', 'hold'], hpDrain: 0.65,
+    laneSnap: true, holdLanePad: 0.38, smashZone: true, canFail: false,
   },
   hard: {
-    nps: 4.2, approach: 1.8, windowScale: 1.15,
-    chord: 2, types: ['tap', 'hold', 'swipe', 'avoid', 'mash'], hpDrain: 1.0,
-    laneSnap: false, holdLanePad: 0.22,
+    nps: 3.8, approach: 1.85, windowScale: 1.2,
+    chord: 2, types: ['tap', 'hold', 'swipe', 'mash'], hpDrain: 1.0,
+    laneSnap: false, holdLanePad: 0.24, smashZone: false, canFail: true,
   },
 };
 
-/** Настройки режима RELAX. */
+/** RELAX — медитативный дрейф: без проигрыша, музыка главнее очков. */
 export const RELAX = {
-  nps: 1.65,
-  approach: 3.6,
-  collectorRadius: 0.118,
-  noteRadius: 0.058,
-  magnetReach: 1.45,       // магнит при ведении пальца
-  sweetLine: 0.085,        // доля высоты экрана — зона SWEET
-  flowGain: 9,
-  flowDecay: 1.7,
-  flowDuration: 15,
-  scoreOrb: 500,
-  scoreBloom: 1400,
-  // Цепочка: несколько нот на одной дуге, бонус за полный сбор
-  chainMin: 4,
-  chainMax: 6,
-  chainStep: 0.24,
-  scoreChain: 320,
-  scoreChainBonus: 2200,
-  // «Замри»: держать палец на ноте, пока она опускается
-  stillDuration: 1.15,
-  scoreStill: 1800,
+  nps: 1.15,
+  approach: 4.2,
+  collectorRadius: 0.13,
+  noteRadius: 0.055,
+  magnetReach: 1.65,
+  sweetLine: 0.1,
+  calmFromMusic: 4.5,      // %/сек — полоска растёт от музыки сама
+  calmGain: 11,
+  calmDecay: 1.2,
+  blissDuration: 18,
+  scoreOrb: 420,
+  scoreBloom: 1200,
+  chainMin: 3,
+  chainMax: 5,
+  chainStep: 0.32,
+  scoreChain: 280,
+  scoreChainBonus: 1800,
+  breathDuration: 1.4,     // «дыхание» — медленно веди палец
+  scoreBreath: 1600,
 };
 
 /** Названия режимов не переводятся, подписи берутся из i18n (mode.*.subtitle). */
@@ -107,14 +124,14 @@ export const MODES = {
   relax: {
     id: 'relax',
     title: 'RELAX',
-    accent: '#6FE9FF',
-    barLabel: 'FLOW',
+    accent: '#7EC8E3',
+    barLabel: 'CALM',
   },
   drive: {
     id: 'drive',
     title: 'DRIVE',
-    accent: '#FF007A',
-    barLabel: 'HP',
+    accent: '#FF4D2E',
+    barLabel: 'RAGE',
   },
 };
 

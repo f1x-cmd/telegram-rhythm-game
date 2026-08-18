@@ -653,10 +653,11 @@ export class Ui {
 
   prepareHud(modeId) {
     const mode = MODES[modeId];
+    this._modeId = modeId;
     this.el.barLabel.textContent = mode.barLabel;
     this.el.modeBadge.textContent = mode.title;
     this.el.modeBadge.style.color = mode.accent;
-    this.el.shield.textContent = modeId === 'drive' ? t('hud.shield') : t('hud.flow');
+    this.el.shield.textContent = modeId === 'drive' ? t('hud.rageHint') : t('hud.calmHint');
     this.el.judgment.textContent = '';
     this.el.judgment.className = 'judgment';
     this._judgmentHideAt = 0;
@@ -664,6 +665,8 @@ export class Ui {
     this._lastCombo = -1;
     this._lastBar = -1;
     this._lastShield = null;
+    this._lastShieldVisible = null;
+    this._lastBarLabel = '';
     this.showCoach(modeId);
     this.hidePause();
   }
@@ -726,14 +729,37 @@ export class Ui {
     if (bar !== this._lastBar) {
       this._lastBar = bar;
       this.el.barFill.style.width = `${bar}%`;
-      const isHealthBar = typeof mode.hp === 'number';
+      const isHealthBar = Boolean(mode.diff?.canFail);
       this.el.barFill.classList.toggle('danger', isHealthBar && bar <= 25);
+      this.el.barFill.classList.toggle('fever', Boolean(mode.feverActive));
+      this.el.barFill.classList.toggle('bliss', Boolean(mode.blissActive));
     }
 
-    const shield = Boolean(shieldActive);
-    if (shield !== this._lastShield) {
-      this._lastShield = shield;
-      this.el.shield.classList.toggle('hidden', !shield);
+    let barLabel = MODES[this._modeId]?.barLabel ?? '';
+    if (mode.blissActive) barLabel = t('hud.bliss');
+    else if (mode.feverActive) barLabel = t('hud.fever');
+    else if (this._modeId === 'drive' && mode.diff?.canFail) barLabel = 'HP';
+    if (barLabel !== this._lastBarLabel) {
+      this._lastBarLabel = barLabel;
+      this.el.barLabel.textContent = barLabel;
+    }
+
+    let shieldText = this._modeId === 'drive' ? t('hud.rageHint') : t('hud.calmHint');
+    if (mode.feverActive) shieldText = t('hud.fever');
+    else if (mode.blissActive) shieldText = t('hud.bliss');
+    else if (this._modeId === 'drive' && mode.diff?.canFail && shieldActive) {
+      shieldText = t('hud.shield');
+    }
+    if (this.el.shield.textContent !== shieldText) {
+      this.el.shield.textContent = shieldText;
+    }
+
+    const showBadge = this._modeId === 'relax'
+      || (this._modeId === 'drive' && !mode.diff?.canFail)
+      || Boolean(shieldActive);
+    if (showBadge !== this._lastShieldVisible) {
+      this._lastShieldVisible = showBadge;
+      this.el.shield.classList.toggle('hidden', !showBadge);
     }
 
     if (this._judgmentHideAt > 0 && now > this._judgmentHideAt) {

@@ -1,7 +1,6 @@
 /**
- * Режим RELAX.
- * Игрок ведёт палец по экрану и собирает светящиеся ноты.
- * Проигрыша нет: цель — расслабиться и послушать музыку.
+ * RELAX — медитативный дрейф.
+ * Музыка и свет главнее очков. Промахи растворяются без наказания.
  */
 
 import { ZONE, COLORS, RELAX, comboMultiplier } from './config.js';
@@ -19,12 +18,12 @@ export class RelaxMode {
     this.collected = 0;
     this.missed = 0;
     this.total = 0;
-    this.flow = 0;
-    this.flowActive = false;
-    this.flowEndsAt = 0;
-    this.flowActivations = 0;
+    this.calm = 0;
+    this.blissActive = false;
+    this.blissEndsAt = 0;
+    this.blissCount = 0;
     this.chainsDone = 0;
-    this.stillsDone = 0;
+    this.breathsDone = 0;
 
     // Прогресс цепочек: индекс — chainId, значения выставляются при старте трека
     this.chainCollected = new Int16Array(512);
@@ -45,7 +44,7 @@ export class RelaxMode {
   }
 
   get barValue() {
-    return this.flow;
+    return this.calm;
   }
 
   start(chart) {
@@ -89,11 +88,12 @@ export class RelaxMode {
     this.maxCombo = 0;
     this.collected = 0;
     this.missed = 0;
-    this.flow = 0;
-    this.flowActive = false;
-    this.flowActivations = 0;
+    this.calm = 12;
+    this.blissActive = false;
+    this.blissEndsAt = 0;
+    this.blissCount = 0;
     this.chainsDone = 0;
-    this.stillsDone = 0;
+    this.breathsDone = 0;
     this.finished = false;
     this.collectorAlpha = 0.55;
     this.pointerDown = false;
@@ -106,7 +106,7 @@ export class RelaxMode {
     this.targetY = this.collectorY;
 
     this.game.fx.seedFloaters(width, height);
-    this.game.audio.setAmbience(0.32);
+    this.game.audio.setAmbience(0.38);
     this.game.audio.resetChime();
   }
 
@@ -144,30 +144,32 @@ export class RelaxMode {
     const noteRadius = width * RELAX.noteRadius;
 
     // Плавное следование за пальцем
-    const follow = this.pointerDown ? 0.32 : 0.08;
+    const follow = this.pointerDown ? 0.28 : 0.06;
     this.collectorX += (this.targetX - this.collectorX) * follow;
     this.collectorY += (this.targetY - this.collectorY) * follow;
-    this.collectorAlpha += ((this.pointerDown ? 1 : 0.25) - this.collectorAlpha) * 0.12;
+    this.collectorAlpha += ((this.pointerDown ? 1 : 0.18) - this.collectorAlpha) * 0.1;
 
-    if (this.pointerDown && now - this._lastRibbonAt > 0.012) {
-      fx.pushRibbon(this.collectorX, this.collectorY, 0.4);
+    if (this.pointerDown && now - this._lastRibbonAt > 0.015) {
+      fx.pushRibbon(this.collectorX, this.collectorY, 0.35);
       this._lastRibbonAt = now;
     }
 
-    // Затухание потока
-    if (this.flowActive) {
-      if (now >= this.flowEndsAt) {
-        this.flowActive = false;
-        this.flow = 0;
+    // Спокойствие растёт от музыки — можно просто слушать
+    if (this.blissActive) {
+      if (now >= this.blissEndsAt) {
+        this.blissActive = false;
+        this.calm = 72;
       } else {
-        const left = (this.flowEndsAt - now) / RELAX.flowDuration;
-        this.flow = Math.max(0, left * 100);
+        const left = (this.blissEndsAt - now) / RELAX.blissDuration;
+        this.calm = Math.max(72, left * 100);
       }
     } else {
-      this.flow = Math.max(0, this.flow - RELAX.flowDecay * dt);
+      const pulse = 0.55 + audio.bands.mid * 0.65 + audio.bands.bass * 0.25;
+      this.calm = Math.min(100, this.calm + RELAX.calmFromMusic * pulse * dt);
+      this.calm = Math.max(0, this.calm - RELAX.calmDecay * dt * 0.35);
     }
 
-    this.hue += dt * 6;
+    this.hue += dt * 4;
 
     for (let i = 0; i < notePool.size; i++) {
       const note = notePool.items[i];
@@ -190,48 +192,43 @@ export class RelaxMode {
       const dy = this.collectorY - y;
       const visible = y > height * ZONE.spawnEnd * 0.5;
       const touching = this.collectorAlpha > 0.4 && visible;
-      const reachMul = note.type === 'bloom' ? 1.25 : note.type === 'still' ? 1.4 : 0.95;
+      const reachMul = note.type === 'bloom' ? 1.3 : note.type === 'breath' ? 1.5 : 0.92;
       const reach = collectorRadius + noteRadius * reachMul;
       const distSq = dx * dx + dy * dy;
 
-      // Магнит: нота чуть притягивает палец, если близко
       if (this.pointerDown && visible && distSq <= (reach * RELAX.magnetReach) ** 2 && distSq > reach * reach) {
-        const pull = this.flowActive ? 0.22 : 0.16;
+        const pull = this.blissActive ? 0.26 : 0.18;
         this.collectorX += dx * pull;
         this.collectorY += dy * pull;
       }
 
-      // «Замри»: палец должен ехать вместе с нотой
-      if (note.type === 'still') {
-        const inside = touching && distSq <= (reach * 1.15) ** 2;
+      if (note.type === 'breath' || note.type === 'still') {
+        const inside = touching && distSq <= (reach * 1.2) ** 2;
         if (inside) {
-          note.holdFilled += dt / note.duration;
+          note.holdFilled += dt / (note.duration || RELAX.breathDuration);
           if (note.holdFilled >= 1) {
-            this._collectStill(note, x, y, now);
+            this._collectBreath(note, x, y, now);
             continue;
           }
-        } else {
-          note.holdFilled = Math.max(0, note.holdFilled - dt * 0.6);
+        } else if (note.holdFilled > 0) {
+          note.holdFilled = Math.max(0, note.holdFilled - dt * 0.35);
         }
       } else if (touching) {
-        // Обычный сбор: палец накрыл ноту (или почти на линии)
-        const lineGrace = y >= hitY - height * 0.035 && Math.abs(dx) <= reach * 1.35;
+        const lineGrace = y >= hitY - height * 0.045 && Math.abs(dx) <= reach * 1.5;
         if (distSq <= reach * reach || lineGrace) {
           this._collect(note, x, y, hitY, now);
           continue;
         }
       }
 
-      // Нота ушла за нижний край
-      if (y > height * 1.02) {
+      if (y > height * 1.04) {
         note.judged = true;
         note.hit = false;
-        note.fade = 0.4;
+        note.fade = 0.55;
         this.missed++;
-        if (this.combo > 3) this.combo = Math.max(0, this.combo - 2);
-        else this.combo = 0;
-        this.flow = Math.max(0, this.flow - 5);
-        audio.resetChime();
+        fx.burst(x, y, 6, colorFor(note.type), {
+          speed: 60, gravity: -18, life: 1.1, size: 2.2, drag: 0.97, lift: 8,
+        });
       }
     }
 
@@ -255,10 +252,10 @@ export class RelaxMode {
     if (this.combo > this.maxCombo) this.maxCombo = this.combo;
 
     const base = isBloom ? RELAX.scoreBloom : isChain ? RELAX.scoreChain : RELAX.scoreOrb;
-    const bonus = (sweet ? 1.5 : 1) * (this.flowActive ? 2 : 1);
+    const bonus = (sweet ? 1.5 : 1) * (this.blissActive ? 2 : 1);
     this.score += Math.round(base * comboMultiplier(this.combo) * bonus);
 
-    this._addFlow(RELAX.flowGain * (isBloom ? 2 : isChain ? 0.6 : 1), now);
+    this._addCalm(RELAX.calmGain * (isBloom ? 2 : isChain ? 0.6 : 1), now);
 
     const color = isBloom ? COLORS.bloom : isChain ? COLORS.chain : COLORS.orb;
     fx.burst(x, y, isBloom ? 24 : isChain ? 9 : 14, color, {
@@ -276,7 +273,7 @@ export class RelaxMode {
 
     if (isChain) {
       this._checkChain(note, x, y, now);
-    } else if (!this.flowActive && sweet) {
+    } else if (!this.blissActive && sweet) {
       this.game.hud.showJudgment('SWEET', 'sweet');
     }
   }
@@ -290,50 +287,50 @@ export class RelaxMode {
     if (this.chainCollected[id] < this.chainTotal[id]) return;
 
     this.chainsDone++;
-    this.score += Math.round(RELAX.scoreChainBonus * comboMultiplier(this.combo) * (this.flowActive ? 2 : 1));
-    this._addFlow(RELAX.flowGain * 2, now);
+    this.score += Math.round(RELAX.scoreChainBonus * comboMultiplier(this.combo) * (this.blissActive ? 2 : 1));
+    this._addCalm(RELAX.calmGain * 2, now);
 
     const { fx, audio } = this.game;
     fx.ring(x, y, COLORS.chain, this.game.width * 0.05, this.game.width * 0.5, 0.7, 3);
     fx.burst(x, y, 22, COLORS.chain, { speed: 200, gravity: -40, life: 0.9, size: 3.6, drag: 0.94, lift: 20 });
     audio.chime();
-    if (!this.flowActive) this.game.hud.showJudgment('CHAIN', 'chain');
+    if (!this.blissActive) this.game.hud.showJudgment('CHAIN', 'chain');
     haptic('medium');
   }
 
-  /** Завершённая нота «замри». */
-  _collectStill(note, x, y, now) {
+  /** Завершённая нота «дыхание» — медленно веди палец. */
+  _collectBreath(note, x, y, now) {
     const { fx, audio } = this.game;
     note.judged = true;
     note.hit = true;
     note.fade = 0;
 
     this.collected++;
-    this.stillsDone++;
+    this.breathsDone++;
     this.combo++;
     if (this.combo > this.maxCombo) this.maxCombo = this.combo;
 
-    this.score += Math.round(RELAX.scoreStill * comboMultiplier(this.combo) * (this.flowActive ? 2 : 1));
-    this._addFlow(RELAX.flowGain * 2.5, now);
+    this.score += Math.round(RELAX.scoreBreath * comboMultiplier(this.combo) * (this.blissActive ? 2 : 1));
+    this._addCalm(RELAX.calmGain * 2.5, now);
 
     fx.ring(x, y, COLORS.still, this.game.width * 0.04, this.game.width * 0.44, 0.8, 3);
     fx.burst(x, y, 26, COLORS.still, { speed: 150, gravity: -50, life: 1, size: 3.6, drag: 0.95, lift: 20 });
     audio.chime();
     audio.chime();
-    if (!this.flowActive) this.game.hud.showJudgment('ZEN', 'zen');
+    if (!this.blissActive) this.game.hud.showJudgment('BREATH', 'zen');
     haptic('medium');
   }
 
-  _addFlow(amount, now) {
-    if (this.flowActive) return;
-    this.flow = Math.min(100, this.flow + amount);
-    if (this.flow < 100) return;
+  _addCalm(amount, now) {
+    if (this.blissActive) return;
+    this.calm = Math.min(100, this.calm + amount);
+    if (this.calm < 100) return;
 
-    this.flowActive = true;
-    this.flowActivations++;
-    this.flowEndsAt = now + RELAX.flowDuration;
+    this.blissActive = true;
+    this.blissCount++;
+    this.blissEndsAt = now + RELAX.blissDuration;
     this.game.fx.flashScreen(0.18, COLORS.bloom);
-    this.game.hud.showJudgment('FLOW', 'flow');
+    this.game.hud.showJudgment('BLISS', 'bliss');
     haptic('medium');
   }
 
@@ -349,7 +346,7 @@ export class RelaxMode {
     this._drawNotes(ctx, now, w, h);
 
     ctx.globalCompositeOperation = 'lighter';
-    fx.drawRibbon(ctx, this.flowActive ? COLORS.bloom : COLORS.orb);
+    fx.drawRibbon(ctx, this.blissActive ? COLORS.bloom : COLORS.orb);
     fx.drawParticles(ctx);
     ctx.globalCompositeOperation = 'source-over';
 
@@ -360,21 +357,21 @@ export class RelaxMode {
 
   _drawBackground(ctx, w, h, bands, now) {
     const gradient = ctx.createLinearGradient(0, 0, 0, h);
-    if (this.flowActive) {
-      gradient.addColorStop(0, '#1b1440');
-      gradient.addColorStop(0.55, '#101a34');
-      gradient.addColorStop(1, '#08111f');
+    if (this.blissActive) {
+      gradient.addColorStop(0, '#1a2848');
+      gradient.addColorStop(0.55, '#121e36');
+      gradient.addColorStop(1, '#0a1224');
     } else {
-      gradient.addColorStop(0, '#0d1a2b');
-      gradient.addColorStop(0.55, '#0a1522');
-      gradient.addColorStop(1, '#070d16');
+      gradient.addColorStop(0, '#0c1828');
+      gradient.addColorStop(0.55, '#0a1420');
+      gradient.addColorStop(1, '#070e18');
     }
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, w, h);
 
     // Медленные световые пятна, дышащие вместе с музыкой
     const pulse = 0.6 + bands.mid * 0.8;
-    const blobColor = this.flowActive ? COLORS.bloom : '#2AA7C4';
+    const blobColor = this.blissActive ? COLORS.bloom : '#5BA8C4';
     this.game.fx.drawGlow(
       ctx,
       w * (0.3 + 0.12 * Math.sin(now * 0.21)),
@@ -397,10 +394,10 @@ export class RelaxMode {
     const y = ZONE.hitLine * h;
     const glow = 0.25 + bands.bass * 0.5;
     ctx.globalAlpha = glow;
-    this.game.fx.drawGlow(ctx, w / 2, y, w * 0.62, this.flowActive ? COLORS.bloom : COLORS.orb, 0.5);
+    this.game.fx.drawGlow(ctx, w / 2, y, w * 0.62, this.blissActive ? COLORS.bloom : COLORS.orb, 0.5);
     ctx.globalAlpha = 1;
 
-    ctx.strokeStyle = this.flowActive ? 'rgba(185, 140, 255, 0.5)' : 'rgba(111, 233, 255, 0.35)';
+    ctx.strokeStyle = this.blissActive ? 'rgba(185, 140, 255, 0.45)' : 'rgba(126, 200, 227, 0.32)';
     ctx.lineWidth = 1.5;
     ctx.setLineDash([6, 10]);
     ctx.beginPath();
@@ -429,12 +426,12 @@ export class RelaxMode {
 
       const isBloom = note.type === 'bloom';
       const isChain = note.type === 'chain';
-      const isStill = note.type === 'still';
+      const isBreath = note.type === 'breath' || note.type === 'still';
       const color = isBloom ? COLORS.bloom
         : isChain ? COLORS.chain
-          : isStill ? COLORS.still
+          : isBreath ? COLORS.still
             : COLORS.orb;
-      const r = radius * (isBloom ? 1.25 : isChain ? 0.72 : isStill ? 1.4 : 1);
+      const r = radius * (isBloom ? 1.25 : isChain ? 0.72 : isBreath ? 1.4 : 1);
 
       // Проявление из тумана в зоне спавна
       let alpha = 1;
@@ -475,8 +472,8 @@ export class RelaxMode {
       ctx.arc(x, y, r * 0.78 * scale, 0, Math.PI * 2);
       ctx.stroke();
 
-      if (isStill) {
-        // Кольцо прогресса: сколько ещё держать палец
+      if (isBreath) {
+        // Кольцо прогресса: медленное «дыхание» пальцем
         ctx.globalAlpha = alpha * 0.25;
         ctx.lineWidth = 5;
         ctx.beginPath();
@@ -509,7 +506,7 @@ export class RelaxMode {
   _drawCollector(ctx, w, now) {
     if (this.collectorAlpha <= 0.02) return;
     const radius = w * RELAX.collectorRadius;
-    const color = this.flowActive ? COLORS.bloom : COLORS.orb;
+    const color = this.blissActive ? COLORS.bloom : COLORS.orb;
     const pulse = 1 + Math.sin(now * 4) * (this.awaitingTouch ? 0.12 : 0.05);
 
     ctx.globalCompositeOperation = 'lighter';
@@ -559,17 +556,24 @@ export class RelaxMode {
         notes: this.collected,
         score: this.score,
         combo: this.maxCombo,
-        flow: this.flowActivations,
+        flow: this.blissCount,
         perfect: 0,
       },
       rows: [
         [t('row.collected'), `${this.collected} / ${seen}`],
         [t('row.chains'), String(this.chainsDone)],
-        [t('row.still'), String(this.stillsDone)],
-        [t('row.flows'), String(this.flowActivations)],
+        [t('row.breath'), String(this.breathsDone)],
+        [t('row.bliss'), String(this.blissCount)],
         [t('row.bestCombo'), String(this.maxCombo)],
         [t('row.accuracy'), `${Math.round(accuracy * 100)}%`],
       ],
     };
   }
+}
+
+function colorFor(type) {
+  if (type === 'bloom') return COLORS.bloom;
+  if (type === 'chain') return COLORS.chain;
+  if (type === 'breath' || type === 'still') return COLORS.still;
+  return COLORS.orb;
 }

@@ -407,23 +407,23 @@ export function buildRelaxChart(analysis) {
     // Плавная синусоида: соседние ноты лежат на одной дуге
     phase += 0.62 + 0.28 * Math.sin(i * 0.41);
 
-    // «Замри»: нота опускается, а палец должен ехать вместе с ней
-    if (stillCooldown <= 0 && random() < 0.6) {
-      const until = current.time + RELAX.stillDuration + 0.5;
+    // «Дыхание»: медленно веди палец вместе с нотой
+    if (stillCooldown <= 0 && random() < 0.38) {
+      const until = current.time + RELAX.breathDuration + 0.5;
       if (countInside(i + 1, until) <= 2) {
         clearRange(i + 1, until);
-        const note = base(current.time, curveX(), 'still');
-        note.duration = RELAX.stillDuration;
+        const note = base(current.time, curveX(), 'breath');
+        note.duration = RELAX.breathDuration;
         note.strength = current.strength;
         notes.push(note);
-        stillCooldown = 7;
+        stillCooldown = 9;
         chainCooldown--;
         continue;
       }
     }
 
-    // Цепочка: серия нот по одной дуге, за полный сбор — бонус
-    if (chainCooldown <= 0 && random() < 0.7) {
+    // Цепочки реже — больше одиночных «орбов» для дрейфа
+    if (chainCooldown <= 0 && random() < 0.55) {
       const length = RELAX.chainMin + Math.floor(random() * (RELAX.chainMax - RELAX.chainMin + 1));
       const step = RELAX.chainStep;
       const until = current.time + step * length + 0.4;
@@ -454,7 +454,7 @@ export function buildRelaxChart(analysis) {
       }
     }
 
-    const isBloom = current.strength > 0.52 && (i % 3 === 0 || random() < 0.22);
+    const isBloom = current.strength > 0.48 && (i % 4 === 0 || random() < 0.28);
     const note = base(current.time, curveX(), isBloom ? 'bloom' : 'orb');
     note.strength = current.strength;
     notes.push(note);

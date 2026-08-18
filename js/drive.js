@@ -1,13 +1,14 @@
 /**
- * Режим DRIVE.
- * Четыре дорожки, окна точности из спецификации, HP и щит новичка.
- * Типы нот: tap (циан), hold (розовый), swipe (зелёный), avoid (красный).
+ * DRIVE — катарсис в дороге.
+ * Easy/Medium: зона SMASH, шкала ярости и FEVER — без проигрыша.
+ * Hard: классические 4 дорожки и HP.
  */
 
 import {
   LANES, ZONE, TIMING, JUDGE, JUDGE_KEYS, COLORS, SCORE_BASE, MAX_HP,
   AVOID_PENALTY, SWIPE_MIN_PX, SWIPE_WINDOW,
-  HOLD_TICK, COMBO_SHAKE, DRIVE_DIFFICULTY, DRIVE_ASSIST_TIME, DRIVE_MISS_HP, comboMultiplier,
+  HOLD_TICK, COMBO_SHAKE, DRIVE_DIFFICULTY, DRIVE_ASSIST_TIME, DRIVE_MISS_HP,
+  RAGE_GAIN, RAGE_MISS, RAGE_FEVER_TIME, DRIVE_SMASH_ZONE_Y, comboMultiplier,
 } from './config.js';
 import { haptic } from './telegram.js';
 import { t } from './i18n.js';
@@ -16,7 +17,7 @@ import { shieldConfig } from './liveops.js';
 export class DriveMode {
   constructor(game) {
     this.game = game;
-    this.accent = COLORS.hold;
+    this.accent = COLORS.rage;
 
     this.diff = DRIVE_DIFFICULTY.medium;
     this.windowScale = 1;
@@ -24,6 +25,11 @@ export class DriveMode {
     this.beatInterval = 0.5;
 
     this.hp = MAX_HP;
+    this.rage = 0;
+    this.feverActive = false;
+    this.feverEndsAt = 0;
+    this.feverCount = 0;
+    this.smashHits = 0;
     this.score = 0;
     this.combo = 0;
     this.maxCombo = 0;
@@ -47,7 +53,7 @@ export class DriveMode {
   }
 
   get barValue() {
-    return this.hp;
+    return this.diff.canFail ? this.hp : this.rage;
   }
 
   start(chart, difficultyKey) {
@@ -87,6 +93,11 @@ export class DriveMode {
     }
 
     this.hp = MAX_HP;
+    this.rage = 18;
+    this.feverActive = false;
+    this.feverEndsAt = 0;
+    this.feverCount = 0;
+    this.smashHits = 0;
     this.score = 0;
     this.combo = 0;
     this.maxCombo = 0;
@@ -112,9 +123,10 @@ export class DriveMode {
     this.game.audio.setAmbience(0);
   }
 
-  /** Окно точности: первые секунды — мягче, чтобы войти в ритм. */
+  /** Окно точности: assist + FEVER расширяют окно. */
   _windowScale(songTime) {
-    const assist = songTime < DRIVE_ASSIST_TIME ? 1.28 : 1;
+    let assist = songTime < DRIVE_ASSIST_TIME ? 1.28 : 1;
+    if (this.feverActive) assist *= 1.35;
     return this.diff.windowScale * assist;
   }
 
@@ -140,12 +152,56 @@ export class DriveMode {
 
   onDown(slot) {
     const now = this.game.audio.time;
-    const lane = this._laneOf(slot.x);
-    slot.lane = lane;
-    this.laneFlash[lane] = now + 0.12;
-    this.game.audio.click(0.18);
-
+    const { width, height, fx, audio } = this.game;
     const missWindow = TIMING.GOOD * this._windowScale(this.game.audio.songTime());
+    const smashZone = this.diff.smashZone && slot.y >= height * DRIVE_SMASH_ZONE_Y;
+
+    slot.lane = this._laneOf(slot.x);
+    this.laneFlash[slot.lane] = now + 0.12;
+    audio.click(0.18);
+
+    // Зона SMASH: бей куда угодно — ловим ближайшую ноту на экране
+    if (smashZone) {
+      const target = this._findSmashTarget(slot.x, slot.y, now, missWindow * 1.8);
+      if (target) {
+        this.smashHits++;
+        const laneWidth = width / LANES;
+        const cx = target.lane * laneWidth + laneWidth / 2;
+        const cy = ZONE.hitLine * height;
+        fx.burst(slot.x, slot.y, 14, COLORS.glass, {
+          speed: 340, gravity: 520, life: 0.45, size: 2.8, lift: 60,
+        });
+        fx.burst(cx, cy, 10, COLORS.rage, {
+          speed: 280, gravity: 640, life: 0.35, size: 3.2, lift: 90,
+        });
+        haptic('rigid');
+
+        if (target.type === 'hold') {
+          target.state = 'holding';
+          target.holdPointer = slot.id;
+          target.holdAcc = 0;
+          target.tickCount = 0;
+          const abs = audio.toAudioTime(target.time);
+          target.headJudge = this._judgeKey(Math.abs(now - abs));
+          this._applyJudgment(target.headJudge, target, now, { silentMissSound: true, smash: true });
+        } else {
+          target.judged = true;
+          target.hit = true;
+          target.fade = 0;
+          const abs = audio.toAudioTime(target.time);
+          this._applyJudgment(this._judgeKey(Math.abs(now - abs)), target, now, { smash: true });
+        }
+        return;
+      }
+      audio.punch(0.5);
+      fx.burst(slot.x, slot.y, 6, COLORS.glass, {
+        speed: 200, gravity: 400, life: 0.3, size: 2, lift: 40,
+      });
+      haptic('soft');
+      return;
+    }
+
+    const lane = slot.lane;
 
     // Красная нота: касание запрещено
     const avoid = this._findNote(lane, now, missWindow * 1.3, 'avoid');
@@ -231,7 +287,16 @@ export class DriveMode {
     const holdPad = this.diff.holdLanePad ?? 0.3;
 
     this.lanePulse.fill(0);
-    this.shieldActive = songTime < this.shieldTime || this.misses < this.shieldMisses;
+    this.shieldActive = this.diff.canFail
+      && (songTime < this.shieldTime || this.misses < this.shieldMisses);
+
+    if (this.feverActive && now >= this.feverEndsAt) {
+      this.feverActive = false;
+      this.rage = 70;
+    }
+    if (!this.diff.canFail && !this.feverActive) {
+      this.rage = Math.max(0, this.rage - dt * 1.6);
+    }
 
     for (let i = 0; i < notePool.size; i++) {
       const note = notePool.items[i];
@@ -312,7 +377,7 @@ export class DriveMode {
       }
     }
 
-    if (this.hp <= 0) {
+    if (this.diff.canFail && this.hp <= 0) {
       this.hp = 0;
       this.failed = true;
       this.finished = true;
@@ -322,6 +387,39 @@ export class DriveMode {
     if (audio.duration > 0 && songTime > audio.duration + 1.5) {
       this.finished = true;
     }
+  }
+
+  /** Ближайшая нота на экране для зоны SMASH (любая дорожка). */
+  _findSmashTarget(x, y, now, window) {
+    const { notePool, audio, width, height } = this.game;
+    const hitY = ZONE.hitLine * height;
+    const laneWidth = width / LANES;
+    let best = null;
+    let bestScore = Infinity;
+
+    for (let i = 0; i < notePool.size; i++) {
+      const note = notePool.items[i];
+      if (!note.active || note.judged || note.state === 'holding') continue;
+      if (note.type === 'avoid' || note.type === 'mash') continue;
+
+      const abs = audio.toAudioTime(note.time);
+      const delta = Math.abs(now - abs);
+      if (delta > window) continue;
+
+      const progress = 1 - (abs - now) / this.approach;
+      if (progress < 0 || progress > 1.15) continue;
+
+      const noteY = progress * hitY;
+      const noteX = note.lane * laneWidth + laneWidth / 2;
+      const screenDist = Math.hypot(x - noteX, y - noteY);
+      const score = screenDist * 0.002 + delta;
+
+      if (score < bestScore) {
+        bestScore = score;
+        best = note;
+      }
+    }
+    return best;
   }
 
   /**
@@ -437,8 +535,12 @@ export class DriveMode {
     this.mashDone++;
     this.counts.PERFECT_PLUS++;
     this._bumpCombo();
-    this.score += Math.round(SCORE_BASE * 1.2 * comboMultiplier(this.combo));
-    this.hp = Math.min(MAX_HP, this.hp + 2);
+    this.score += Math.round(SCORE_BASE * 1.2 * comboMultiplier(this.combo) * (this.feverActive ? 1.45 : 1));
+    if (this.diff.canFail) {
+      this.hp = Math.min(MAX_HP, this.hp + 2);
+    } else {
+      this._addRage(RAGE_GAIN.MASH_FINISH, now);
+    }
 
     fx.burst(x, y, 26, COLORS.mash, { speed: 430, gravity: 700, life: 0.6, size: 4, lift: 150 });
     fx.ring(x, y, COLORS.mash, laneWidth * 0.2, width * 0.9, 0.5, 4);
@@ -448,11 +550,24 @@ export class DriveMode {
     haptic('heavy');
   }
 
-  /** Растит комбо и считает «разгоны» — серии по 25 нот без промаха. */
   _bumpCombo() {
     this.combo++;
     if (this.combo > this.maxCombo) this.maxCombo = this.combo;
     if (this.combo % 25 === 0) this.rushes++;
+  }
+
+  _addRage(amount, now) {
+    if (this.feverActive) return;
+    this.rage = Math.min(100, this.rage + amount);
+    if (this.rage < 100) return;
+
+    this.feverActive = true;
+    this.feverCount++;
+    this.feverEndsAt = now + RAGE_FEVER_TIME;
+    this.game.fx.flashScreen(0.24, COLORS.fever);
+    this.game.fx.shake(now, 8);
+    this.game.hud.showJudgment('FEVER', 'fever');
+    haptic('heavy');
   }
 
   _judgeKey(delta) {
@@ -467,28 +582,45 @@ export class DriveMode {
   _applyJudgment(key, note, now, options = {}) {
     const judgment = JUDGE[key];
     const { fx, audio, hud, width, height } = this.game;
+    const scoreMult = this.feverActive ? 1.45 : 1;
+    const smashMult = options.smash ? 1.15 : 1;
     this.counts[key]++;
 
     if (key === 'MISS') {
-      this.combo = 0;
+      if (this.diff.canFail) {
+        this.combo = 0;
+      } else {
+        this.combo = Math.max(0, this.combo - 1);
+        this.rage = Math.max(0, this.rage - RAGE_MISS);
+      }
       this.misses++;
       if (!options.silentMissSound) audio.miss();
-      fx.flashScreen(0.1, COLORS.avoid);
+      if (this.diff.canFail) fx.flashScreen(0.1, COLORS.avoid);
     } else {
       this._bumpCombo();
-      this.score += Math.round(SCORE_BASE * judgment.mult * comboMultiplier(this.combo));
+      this.score += Math.round(SCORE_BASE * judgment.mult * comboMultiplier(this.combo) * scoreMult * smashMult);
 
       const intensity = key === 'PERFECT_PLUS' ? 1.15 : key === 'PERFECT' ? 1 : 0.75;
       audio.punch(intensity);
+
+      if (!this.diff.canFail) {
+        const gain = RAGE_GAIN[key] ?? RAGE_GAIN.GOOD;
+        this._addRage(gain, now);
+      }
     }
 
-    // HP: щит новичка гасит любой урон; MISS мягче для hyper-casual
-    let delta = key === 'MISS' ? DRIVE_MISS_HP : judgment.hp;
-    if (delta < 0) {
-      delta *= this.diff.hpDrain;
-      if (this.shieldActive) delta = 0;
+    // HP только на hard
+    if (this.diff.canFail) {
+      let delta = key === 'MISS' ? DRIVE_MISS_HP : judgment.hp;
+      if (delta < 0) {
+        delta *= this.diff.hpDrain;
+        if (this.shieldActive) delta = 0;
+      }
+      this.hp = Math.min(MAX_HP, Math.max(0, this.hp + delta));
+    } else if (key !== 'MISS') {
+      // На easy/medium попадания чуть подлечивают «запас» для статистики
+      this.hp = Math.min(MAX_HP, this.hp + 0.3);
     }
-    this.hp = Math.min(MAX_HP, Math.max(0, this.hp + delta));
 
     // Визуальный отклик у линии судейства
     const laneWidth = width / LANES;
@@ -527,7 +659,8 @@ export class DriveMode {
     note.fade = 0;
 
     this._bumpCombo();
-    this.score += Math.round(SCORE_BASE * 0.5 * comboMultiplier(this.combo));
+    this.score += Math.round(SCORE_BASE * 0.5 * comboMultiplier(this.combo) * (this.feverActive ? 1.45 : 1));
+    if (!this.diff.canFail) this._addRage(RAGE_GAIN.HOLD_TICK * 3, now);
 
     const laneWidth = width / LANES;
     const x = note.lane * laneWidth + laneWidth / 2;
@@ -595,15 +728,32 @@ export class DriveMode {
 
   _drawBackground(ctx, w, h, bands) {
     const gradient = ctx.createLinearGradient(0, 0, 0, h);
-    gradient.addColorStop(0, '#16111f');
-    gradient.addColorStop(ZONE.spawnEnd, '#0d0b16');
-    gradient.addColorStop(ZONE.approachEnd, '#0b0a13');
-    gradient.addColorStop(1, '#08070d');
+    if (this.feverActive) {
+      gradient.addColorStop(0, '#2a1010');
+      gradient.addColorStop(ZONE.spawnEnd, '#1a0a0a');
+      gradient.addColorStop(ZONE.approachEnd, '#120808');
+      gradient.addColorStop(1, '#0a0606');
+    } else {
+      gradient.addColorStop(0, '#1a1218');
+      gradient.addColorStop(ZONE.spawnEnd, '#120e14');
+      gradient.addColorStop(ZONE.approachEnd, '#0e0a10');
+      gradient.addColorStop(1, '#080608');
+    }
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, w, h);
 
-    // Басовое дыхание у линии судейства
-    this.game.fx.drawGlow(ctx, w / 2, ZONE.hitLine * h, w * (0.5 + bands.bass * 0.5), COLORS.hold, 0.1 + bands.bass * 0.2);
+    const accent = this.feverActive ? COLORS.fever : COLORS.rage;
+    this.game.fx.drawGlow(ctx, w / 2, ZONE.hitLine * h, w * (0.5 + bands.bass * 0.5), accent, 0.1 + bands.bass * 0.22);
+
+    if (this.diff.smashZone) {
+      const zoneY = h * DRIVE_SMASH_ZONE_Y;
+      const zoneGrad = ctx.createLinearGradient(0, zoneY, 0, h);
+      zoneGrad.addColorStop(0, 'rgba(255, 77, 46, 0)');
+      zoneGrad.addColorStop(0.35, 'rgba(255, 77, 46, 0.06)');
+      zoneGrad.addColorStop(1, 'rgba(255, 77, 46, 0.14)');
+      ctx.fillStyle = zoneGrad;
+      ctx.fillRect(0, zoneY, w, h - zoneY);
+    }
   }
 
   /** Сетка, синхронная долям трека: даёт ощущение ритма. */
@@ -640,11 +790,13 @@ export class DriveMode {
       ctx.stroke();
     }
 
-    // Полосы скорости на высоком комбо
-    if (this.combo >= 20) {
-      const strength = Math.min(0.3, (this.combo - 20) / 120 + 0.08);
+    // Полосы скорости на FEVER или высоком комбо
+    if (this.feverActive || this.combo >= 20) {
+      const strength = this.feverActive
+        ? 0.45
+        : Math.min(0.3, (this.combo - 20) / 120 + 0.08);
       ctx.globalAlpha = strength * (0.6 + bands.mid * 0.6);
-      ctx.fillStyle = COLORS.hold;
+      ctx.fillStyle = this.feverActive ? COLORS.fever : COLORS.rage;
       for (let i = 0; i < LANES; i++) {
         const x = i * laneWidth + laneWidth * 0.5;
         const offset = ((now * 700 + i * 130) % (h + 200)) - 100;
@@ -676,15 +828,16 @@ export class DriveMode {
       if (hitGlow > 0 || pulse > 0) {
         ctx.globalCompositeOperation = 'lighter';
         const glow = Math.max(hitGlow, pulse * 0.85);
-        this.game.fx.drawGlow(ctx, cx, hitY, laneWidth * (0.75 + pulse * 0.35), COLORS.tap, glow * 0.75);
+        this.game.fx.drawGlow(ctx, cx, hitY, laneWidth * (0.75 + pulse * 0.35), padColor, glow * 0.75);
         ctx.globalCompositeOperation = 'source-over';
       }
 
       const baseAlpha = 0.07 + pulse * 0.18;
-      ctx.fillStyle = pressed ? 'rgba(0, 240, 255, 0.34)' : `rgba(0, 240, 255, ${baseAlpha})`;
+      const padColor = this.feverActive ? COLORS.fever : COLORS.tap;
+      ctx.fillStyle = pressed ? `rgba(255, 77, 46, 0.34)` : `rgba(255, 77, 46, ${baseAlpha})`;
       ctx.strokeStyle = pressed || pulse > 0.4
-        ? `rgba(0, 240, 255, ${0.55 + pulse * 0.35})`
-        : 'rgba(0, 240, 255, 0.25)';
+        ? `rgba(255, 209, 102, ${0.55 + pulse * 0.35})`
+        : 'rgba(255, 77, 46, 0.28)';
       ctx.lineWidth = pressed || pulse > 0.35 ? 3 : 1.5;
       this._roundRect(ctx, cx - padW / 2, hitY - padH / 2, padW, padH, 8);
       ctx.fill();
@@ -693,8 +846,10 @@ export class DriveMode {
   }
 
   _drawHitLine(ctx, w, hitY, bands) {
-    ctx.strokeStyle = `rgba(0, 240, 255, ${0.5 + bands.bass * 0.4})`;
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = this.feverActive
+      ? `rgba(255, 209, 102, ${0.65 + bands.bass * 0.35})`
+      : `rgba(255, 77, 46, ${0.55 + bands.bass * 0.35})`;
+    ctx.lineWidth = this.feverActive ? 3 : 2;
     ctx.beginPath();
     ctx.moveTo(0, hitY);
     ctx.lineTo(w, hitY);
@@ -931,8 +1086,8 @@ export class DriveMode {
         ['Great', String(this.counts.GREAT)],
         ['Good', String(this.counts.GOOD)],
         ['Miss', String(this.counts.MISS)],
-        [t('row.smash'), String(this.mashDone)],
-        [t('row.rush'), String(this.rushes)],
+        [t('row.smash'), String(this.smashHits + this.mashDone)],
+        [t('row.fever'), String(this.feverCount)],
         [t('row.bestCombo'), String(this.maxCombo)],
         [t('row.accuracy'), `${Math.round(accuracy * 100)}%`],
       ],

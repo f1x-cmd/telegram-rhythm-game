@@ -26,8 +26,8 @@ html, body {
   user-select: none;
 }
 
-body[data-mode='drive'] { --accent: #FF007A; }
-body[data-mode='relax'] { --accent: #6FE9FF; }
+body[data-mode='drive'] { --accent: #FF4D2E; }
+body[data-mode='relax'] { --accent: #7EC8E3; }
 
 #app {
   width: 100%;
@@ -767,6 +767,8 @@ body[data-library='open'] { overflow: hidden; }
 .judgment.good,
 .judgment.miss,
 .judgment.flow,
+.judgment.bliss,
+.judgment.fever,
 .judgment.sweet,
 .judgment.chain,
 .judgment.zen,
@@ -782,6 +784,8 @@ body[data-library='open'] { overflow: hidden; }
 .judgment.miss { color: #FF3300; }
 .judgment.sweet { color: #6FE9FF; }
 .judgment.flow { color: #B98CFF; text-shadow: 0 0 16px #B98CFF; }
+.judgment.bliss { color: #C4A8FF; text-shadow: 0 0 18px #7EC8E3; }
+.judgment.fever { color: #FFD166; text-shadow: 0 0 18px #FF4D2E; }
 .judgment.chain { color: #7CFFC4; }
 .judgment.zen { color: #FFD98C; }
 .judgment.mash { color: #FFAA00; text-shadow: 0 0 16px #FFAA00; }
@@ -856,6 +860,14 @@ body[data-library='open'] { overflow: hidden; }
 
 .bar-fill.danger {
   background: linear-gradient(90deg, #FF3300, #FF007A);
+}
+
+.bar-fill.fever {
+  background: linear-gradient(90deg, #FF4D2E, #FFD166);
+}
+
+.bar-fill.bliss {
+  background: linear-gradient(90deg, #7EC8E3, #C4A8FF);
 }
 
 .back-btn,
