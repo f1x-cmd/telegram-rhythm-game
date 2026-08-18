@@ -56,25 +56,28 @@
 
       <p id="menu-error" class="menu-error"></p>
 
-      <button id="invite-btn" type="button" class="secondary-btn menu-invite-btn" data-i18n="profile.invite"></button>
-      <p class="menu-invite-hint hint" data-i18n="menu.inviteHint"></p>
-
-      <button id="play-btn" type="button" class="primary-btn play-hero"></button>
-      <p id="play-meta" class="play-meta"></p>
-      <p id="play-hint" class="play-hint hidden"></p>
-
       <details class="menu-section settings">
         <summary data-i18n="menu.settings"></summary>
+        <p class="hint settings-hint" data-i18n="menu.settingsHint"></p>
         <div class="lang-row">
           <label class="lang-label" for="lang-select" data-i18n="section.language"></label>
           <select id="lang-select" class="lang-select"></select>
         </div>
         <div class="offset-row">
+          <label class="lang-label" for="offset-input" data-i18n="section.sync"></label>
           <input id="offset-input" type="range" min="-200" max="200" step="5" value="0">
           <span id="offset-value" class="offset-value">0</span>
         </div>
         <p class="hint" data-i18n="menu.calibrationHint"></p>
       </details>
+
+      <div class="menu-dock">
+        <button id="invite-btn" type="button" class="secondary-btn menu-invite-btn" data-i18n="profile.invite"></button>
+        <p class="menu-invite-hint hint" data-i18n="menu.inviteHint"></p>
+        <button id="play-btn" type="button" class="primary-btn play-hero"></button>
+        <p id="play-meta" class="play-meta"></p>
+        <p id="play-hint" class="play-hint hidden"></p>
+      </div>
     </section>
 
     <!-- ─── Игра ─────────────────────────────────────────────────────────── -->

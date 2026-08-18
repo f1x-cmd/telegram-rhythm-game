@@ -190,11 +190,20 @@ export class RelaxMode {
       const dy = this.collectorY - y;
       const visible = y > height * ZONE.spawnEnd * 0.5;
       const touching = this.collectorAlpha > 0.4 && visible;
+      const reachMul = note.type === 'bloom' ? 1.25 : note.type === 'still' ? 1.4 : 0.95;
+      const reach = collectorRadius + noteRadius * reachMul;
+      const distSq = dx * dx + dy * dy;
+
+      // Магнит: нота чуть притягивает палец, если близко
+      if (this.pointerDown && visible && distSq <= (reach * RELAX.magnetReach) ** 2 && distSq > reach * reach) {
+        const pull = this.flowActive ? 0.22 : 0.16;
+        this.collectorX += dx * pull;
+        this.collectorY += dy * pull;
+      }
 
       // «Замри»: палец должен ехать вместе с нотой
       if (note.type === 'still') {
-        const reach = collectorRadius + noteRadius * 1.4;
-        const inside = touching && dx * dx + dy * dy <= reach * reach;
+        const inside = touching && distSq <= (reach * 1.15) ** 2;
         if (inside) {
           note.holdFilled += dt / note.duration;
           if (note.holdFilled >= 1) {
@@ -205,9 +214,9 @@ export class RelaxMode {
           note.holdFilled = Math.max(0, note.holdFilled - dt * 0.6);
         }
       } else if (touching) {
-        // Обычный сбор: палец накрыл ноту
-        const reach = collectorRadius + noteRadius * (note.type === 'bloom' ? 1.25 : 0.95);
-        if (dx * dx + dy * dy <= reach * reach) {
+        // Обычный сбор: палец накрыл ноту (или почти на линии)
+        const lineGrace = y >= hitY - height * 0.035 && Math.abs(dx) <= reach * 1.35;
+        if (distSq <= reach * reach || lineGrace) {
           this._collect(note, x, y, hitY, now);
           continue;
         }
@@ -219,8 +228,9 @@ export class RelaxMode {
         note.hit = false;
         note.fade = 0.4;
         this.missed++;
-        this.combo = 0;
-        this.flow = Math.max(0, this.flow - 10);
+        if (this.combo > 3) this.combo = Math.max(0, this.combo - 2);
+        else this.combo = 0;
+        this.flow = Math.max(0, this.flow - 5);
         audio.resetChime();
       }
     }
@@ -234,7 +244,7 @@ export class RelaxMode {
     const { audio, fx } = this.game;
     const isBloom = note.type === 'bloom';
     const isChain = note.type === 'chain';
-    const sweet = Math.abs(y - hitY) < this.game.height * 0.06;
+    const sweet = Math.abs(y - hitY) < this.game.height * RELAX.sweetLine;
 
     note.judged = true;
     note.hit = true;

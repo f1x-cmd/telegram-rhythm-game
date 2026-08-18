@@ -7,7 +7,7 @@
 import {
   LANES, ZONE, TIMING, JUDGE, JUDGE_KEYS, COLORS, SCORE_BASE, MAX_HP,
   AVOID_PENALTY, SWIPE_MIN_PX, SWIPE_WINDOW,
-  HOLD_TICK, COMBO_SHAKE, DRIVE_DIFFICULTY, comboMultiplier,
+  HOLD_TICK, COMBO_SHAKE, DRIVE_DIFFICULTY, DRIVE_ASSIST_TIME, DRIVE_MISS_HP, comboMultiplier,
 } from './config.js';
 import { haptic } from './telegram.js';
 import { t } from './i18n.js';
@@ -40,6 +40,7 @@ export class DriveMode {
 
     this.laneFlash = new Float32Array(LANES);
     this.laneHit = new Float32Array(LANES);
+    this.lanePulse = new Float32Array(LANES);
 
     this.finished = false;
     this.failed = false;
@@ -105,9 +106,32 @@ export class DriveMode {
     for (let i = 0; i < LANES; i++) {
       this.laneFlash[i] = 0;
       this.laneHit[i] = 0;
+      this.lanePulse[i] = 0;
     }
 
     this.game.audio.setAmbience(0);
+  }
+
+  /** Окно точности: первые секунды — мягче, чтобы войти в ритм. */
+  _windowScale(songTime) {
+    const assist = songTime < DRIVE_ASSIST_TIME ? 1.28 : 1;
+    return this.diff.windowScale * assist;
+  }
+
+  _laneWidth() {
+    return this.game.width / LANES;
+  }
+
+  _laneOf(x) {
+    const laneWidth = this._laneWidth();
+    return Math.min(LANES - 1, Math.max(0, Math.floor(x / laneWidth)));
+  }
+
+  /** Допуск по X для удержания: палец может чуть съехать в соседнюю дорожку. */
+  _laneMatch(x, lane, pad = 0.3) {
+    const laneWidth = this._laneWidth();
+    const center = lane * laneWidth + laneWidth / 2;
+    return Math.abs(x - center) <= laneWidth * (0.5 + pad);
   }
 
   stop() { /* нечего освобождать */ }
@@ -121,7 +145,7 @@ export class DriveMode {
     this.laneFlash[lane] = now + 0.12;
     this.game.audio.click(0.18);
 
-    const missWindow = TIMING.GOOD * this.windowScale;
+    const missWindow = TIMING.GOOD * this._windowScale(this.game.audio.songTime());
 
     // Красная нота: касание запрещено
     const avoid = this._findNote(lane, now, missWindow * 1.3, 'avoid');
@@ -137,7 +161,10 @@ export class DriveMode {
       return;
     }
 
-    const note = this._findNote(lane, now, missWindow, 'press');
+    let note = this._findNote(lane, now, missWindow, 'press');
+    if (!note && this.diff.laneSnap) {
+      note = this._findNearestPress(slot.x, now, missWindow);
+    }
     if (!note) return;
 
     const abs = this.game.audio.toAudioTime(note.time);
@@ -167,12 +194,15 @@ export class DriveMode {
     if (absX < SWIPE_MIN_PX && absY < SWIPE_MIN_PX) return;
 
     const now = this.game.audio.time;
-    if (now - slot.startTime > SWIPE_WINDOW * this.windowScale) return;
+    if (now - slot.startTime > SWIPE_WINDOW * this._windowScale(this.game.audio.songTime())) return;
 
     const dir = absY >= absX ? (dy < 0 ? 'up' : 'down') : (dx < 0 ? 'left' : 'right');
     const lane = this._laneOf(slot.startX);
-    const missWindow = TIMING.GOOD * this.windowScale;
-    const note = this._findNote(lane, slot.startTime, missWindow, 'swipe');
+    const missWindow = TIMING.GOOD * this._windowScale(this.game.audio.songTime());
+    let note = this._findNote(lane, now, missWindow, 'swipe');
+    if (!note && this.diff.laneSnap) {
+      note = this._findNearestSwipe(slot.x, slot.y, now, missWindow, dir);
+    }
     if (!note || note.dir !== dir) return;
 
     slot.swipeUsed = true;
@@ -180,7 +210,7 @@ export class DriveMode {
     note.hit = true;
     note.fade = 0;
     const abs = this.game.audio.toAudioTime(note.time);
-    this._applyJudgment(this._judgeKey(Math.abs(slot.startTime - abs)), note, now);
+    this._applyJudgment(this._judgeKey(Math.abs(now - abs)), note, now);
   }
 
   onUp(slot) {
@@ -197,8 +227,10 @@ export class DriveMode {
 
   update(now, songTime, dt) {
     const { audio, notePool, pointers } = this.game;
-    const missWindow = TIMING.GOOD * this.windowScale;
+    const missWindow = TIMING.GOOD * this._windowScale(songTime);
+    const holdPad = this.diff.holdLanePad ?? 0.3;
 
+    this.lanePulse.fill(0);
     this.shieldActive = songTime < this.shieldTime || this.misses < this.shieldMisses;
 
     for (let i = 0; i < notePool.size; i++) {
@@ -212,10 +244,17 @@ export class DriveMode {
       }
 
       const abs = audio.toAudioTime(note.time);
+      const timeLeft = abs - now;
+
+      // Подсветка дорожки перед ударом
+      if (!note.judged && note.type !== 'avoid' && timeLeft > 0 && timeLeft < 0.45) {
+        const pulse = 1 - timeLeft / 0.45;
+        if (pulse > this.lanePulse[note.lane]) this.lanePulse[note.lane] = pulse;
+      }
 
       if (note.state === 'holding') {
         const slot = pointers.find(note.holdPointer);
-        const laneOk = Boolean(slot) && this._laneOf(slot.x) === note.lane;
+        const laneOk = Boolean(slot) && this._laneMatch(slot.x, note.lane, holdPad);
 
         if (!laneOk) {
           this._breakHold(note, now);
@@ -285,9 +324,52 @@ export class DriveMode {
     }
   }
 
-  _laneOf(x) {
-    const laneWidth = this.game.width / LANES;
-    return Math.min(LANES - 1, Math.max(0, Math.floor(x / laneWidth)));
+  /**
+   * Ближайшая tap/hold-нота: если промахнулись по дорожке, но попали по времени.
+   */
+  _findNearestPress(x, time, window) {
+    const { notePool, audio } = this.game;
+    let best = null;
+    let bestScore = Infinity;
+    const tapLane = this._laneOf(x);
+
+    for (let i = 0; i < notePool.size; i++) {
+      const note = notePool.items[i];
+      if (!note.active || note.judged || note.state === 'holding') continue;
+      if (note.type !== 'tap' && note.type !== 'hold') continue;
+
+      const delta = Math.abs(time - audio.toAudioTime(note.time));
+      if (delta > window) continue;
+
+      const laneDist = Math.abs(note.lane - tapLane);
+      const score = delta + laneDist * 0.08;
+      if (score < bestScore) {
+        bestScore = score;
+        best = note;
+      }
+    }
+    return best;
+  }
+
+  /** Свайп: ищем ноту в соседних дорожках, если палец сдвинулся. */
+  _findNearestSwipe(x, y, time, window, dir) {
+    const { notePool, audio } = this.game;
+    let best = null;
+    let bestDelta = Infinity;
+    const lane = this._laneOf(x);
+
+    for (let i = 0; i < notePool.size; i++) {
+      const note = notePool.items[i];
+      if (!note.active || note.judged || note.type !== 'swipe' || note.dir !== dir) continue;
+      if (Math.abs(note.lane - lane) > 1) continue;
+
+      const delta = Math.abs(time - audio.toAudioTime(note.time));
+      if (delta <= window && delta < bestDelta) {
+        bestDelta = delta;
+        best = note;
+      }
+    }
+    return best;
   }
 
   /**
@@ -320,7 +402,7 @@ export class DriveMode {
   /** Активная нота-«долбилка» в дорожке. */
   _findMash(lane, now) {
     const { notePool, audio } = this.game;
-    const missWindow = TIMING.GOOD * this.windowScale;
+    const missWindow = TIMING.GOOD * this._windowScale(this.game.audio.songTime());
 
     for (let i = 0; i < notePool.size; i++) {
       const note = notePool.items[i];
@@ -374,7 +456,7 @@ export class DriveMode {
   }
 
   _judgeKey(delta) {
-    const s = this.windowScale;
+    const s = this._windowScale(this.game.audio.songTime());
     if (delta <= TIMING.PERFECT_PLUS * s) return 'PERFECT_PLUS';
     if (delta <= TIMING.PERFECT * s) return 'PERFECT';
     if (delta <= TIMING.GREAT * s) return 'GREAT';
@@ -400,8 +482,8 @@ export class DriveMode {
       audio.punch(intensity);
     }
 
-    // HP: щит новичка гасит любой урон
-    let delta = judgment.hp;
+    // HP: щит новичка гасит любой урон; MISS мягче для hyper-casual
+    let delta = key === 'MISS' ? DRIVE_MISS_HP : judgment.hp;
     if (delta < 0) {
       delta *= this.diff.hpDrain;
       if (this.shieldActive) delta = 0;
@@ -501,7 +583,7 @@ export class DriveMode {
     this._drawLanes(ctx, w, h, laneWidth, now, bands);
     this._drawPads(ctx, w, h, laneWidth, hitY, now);
     this._drawHitLine(ctx, w, hitY, bands);
-    this._drawNotes(ctx, now, w, h, laneWidth, hitY);
+    this._drawNotes(ctx, now, songTime, w, h, laneWidth, hitY);
 
     ctx.globalCompositeOperation = 'lighter';
     fx.drawParticles(ctx);
@@ -582,23 +664,28 @@ export class DriveMode {
   }
 
   _drawPads(ctx, w, h, laneWidth, hitY, now) {
-    const padH = h * 0.062;
-    const padW = laneWidth * 0.78;
+    const padH = h * 0.072;
+    const padW = laneWidth * 0.82;
 
     for (let i = 0; i < LANES; i++) {
       const cx = i * laneWidth + laneWidth / 2;
       const hitGlow = Math.max(0, (this.laneHit[i] - now) / 0.22);
       const pressed = now < this.laneFlash[i];
+      const pulse = this.lanePulse[i];
 
-      if (hitGlow > 0) {
+      if (hitGlow > 0 || pulse > 0) {
         ctx.globalCompositeOperation = 'lighter';
-        this.game.fx.drawGlow(ctx, cx, hitY, laneWidth * 0.8, COLORS.tap, hitGlow * 0.7);
+        const glow = Math.max(hitGlow, pulse * 0.85);
+        this.game.fx.drawGlow(ctx, cx, hitY, laneWidth * (0.75 + pulse * 0.35), COLORS.tap, glow * 0.75);
         ctx.globalCompositeOperation = 'source-over';
       }
 
-      ctx.fillStyle = pressed ? 'rgba(0, 240, 255, 0.3)' : 'rgba(0, 240, 255, 0.07)';
-      ctx.strokeStyle = pressed ? 'rgba(0, 240, 255, 0.85)' : 'rgba(0, 240, 255, 0.25)';
-      ctx.lineWidth = pressed ? 3 : 1.5;
+      const baseAlpha = 0.07 + pulse * 0.18;
+      ctx.fillStyle = pressed ? 'rgba(0, 240, 255, 0.34)' : `rgba(0, 240, 255, ${baseAlpha})`;
+      ctx.strokeStyle = pressed || pulse > 0.4
+        ? `rgba(0, 240, 255, ${0.55 + pulse * 0.35})`
+        : 'rgba(0, 240, 255, 0.25)';
+      ctx.lineWidth = pressed || pulse > 0.35 ? 3 : 1.5;
       this._roundRect(ctx, cx - padW / 2, hitY - padH / 2, padW, padH, 8);
       ctx.fill();
       ctx.stroke();
@@ -614,11 +701,11 @@ export class DriveMode {
     ctx.stroke();
   }
 
-  _drawNotes(ctx, now, w, h, laneWidth, hitY) {
+  _drawNotes(ctx, now, songTime, w, h, laneWidth, hitY) {
     const { audio, notePool, fx } = this.game;
     const noteH = h * 0.038;
     const noteW = laneWidth * 0.74;
-    const missWindow = TIMING.GOOD * this.windowScale;
+    const missWindow = TIMING.GOOD * this._windowScale(songTime);
 
     for (let i = 0; i < notePool.size; i++) {
       const note = notePool.items[i];

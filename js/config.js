@@ -49,10 +49,12 @@ export const MAX_HP = 100;
 export const SHIELD_TIME = 15;      // секунд неуязвимости на старте
 export const SHIELD_MISSES = 3;     // первые промахи без урона
 export const AVOID_PENALTY = -15;   // касание красной ноты
-export const SWIPE_MIN_PX = 30;
-export const SWIPE_WINDOW = 0.10;   // спецификация: свайп за ≤ 100 ms
+export const SWIPE_MIN_PX = 24;
+export const SWIPE_WINDOW = 0.14;   // свайп за ≤ 140 ms (масштабируется windowScale)
 export const HOLD_TICK = 0.05;      // проверка удержания каждые 50 мс
 export const COMBO_SHAKE = [10, 25, 50];
+export const DRIVE_ASSIST_TIME = 20; // секунд щита точности в DRIVE
+export const DRIVE_MISS_HP = -5;     // мягче спецификации для hyper-casual
 
 /** Лимит пользовательского аудио (~20 МБ), чтобы decode не подвисал на мобилках. */
 export const CUSTOM_AUDIO_MAX_BYTES = 20 * 1024 * 1024;
@@ -60,28 +62,33 @@ export const CUSTOM_AUDIO_MAX_BYTES = 20 * 1024 * 1024;
 /** Настройки сложности режима DRIVE. Названия — в i18n (ключи diff.*). */
 export const DRIVE_DIFFICULTY = {
   easy: {
-    nps: 2.0, approach: 2.2, windowScale: 1.6,
-    chord: 1, types: ['tap', 'hold'], hpDrain: 0.6,
+    nps: 1.8, approach: 2.5, windowScale: 1.75,
+    chord: 1, types: ['tap', 'hold'], hpDrain: 0.5,
+    laneSnap: true, holdLanePad: 0.42,
   },
   medium: {
-    nps: 3.4, approach: 1.9, windowScale: 1.25,
-    chord: 2, types: ['tap', 'hold', 'swipe', 'mash'], hpDrain: 1.0,
+    nps: 2.6, approach: 2.15, windowScale: 1.5,
+    chord: 1, types: ['tap', 'hold', 'swipe'], hpDrain: 0.7,
+    laneSnap: true, holdLanePad: 0.32,
   },
   hard: {
-    nps: 6.0, approach: 1.55, windowScale: 1.0,
-    chord: 2, types: ['tap', 'hold', 'swipe', 'avoid', 'mash'], hpDrain: 1.25,
+    nps: 4.2, approach: 1.8, windowScale: 1.15,
+    chord: 2, types: ['tap', 'hold', 'swipe', 'avoid', 'mash'], hpDrain: 1.0,
+    laneSnap: false, holdLanePad: 0.22,
   },
 };
 
 /** Настройки режима RELAX. */
 export const RELAX = {
-  nps: 1.5,
-  approach: 3.4,
-  collectorRadius: 0.105,  // доля ширины поля
+  nps: 1.65,
+  approach: 3.6,
+  collectorRadius: 0.118,
   noteRadius: 0.058,
-  flowGain: 7,             // прирост flow за ноту
-  flowDecay: 2.2,          // спад flow в секунду
-  flowDuration: 12,        // длительность состояния потока
+  magnetReach: 1.45,       // магнит при ведении пальца
+  sweetLine: 0.085,        // доля высоты экрана — зона SWEET
+  flowGain: 9,
+  flowDecay: 1.7,
+  flowDuration: 15,
   scoreOrb: 500,
   scoreBloom: 1400,
   // Цепочка: несколько нот на одной дуге, бонус за полный сбор

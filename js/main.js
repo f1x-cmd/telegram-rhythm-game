@@ -47,7 +47,7 @@ class Game {
     this.state = 'menu';
     this.mode = null;
     this.modeId = 'relax';
-    this.difficulty = 'medium';
+    this.difficulty = 'easy';
     this.trackId = TRACKS[0].id;
     this.customFile = null;
     this._lastByMode = { relax: 'slow60', drive: 'velocity' };

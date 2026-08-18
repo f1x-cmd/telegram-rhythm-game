@@ -314,7 +314,7 @@ export function buildDriveChart(analysis, difficultyKey) {
       }
     }
 
-    if (type === 'tap' && canSwipe && swipeCooldown <= 0 && current.strength >= strongCut && random() < 0.45) {
+    if (type === 'tap' && canSwipe && swipeCooldown <= 0 && current.strength >= strongCut && random() < 0.32) {
       type = 'swipe';
       dir = random() < 0.5 ? 'up' : (lane <= 1 ? 'right' : 'left');
       swipeCooldown = 4;
@@ -326,8 +326,8 @@ export function buildDriveChart(analysis, difficultyKey) {
 
     notes.push({ time: current.time, lane, type, duration: holdDuration, dir, taps, strength: current.strength });
 
-    // Аккорды на сильных долях
-    if (diff.chord > 1 && type === 'tap' && current.strength >= strongCut && random() < 0.2) {
+    // Аккорды только на hard и реже
+    if (diff.chord > 1 && type === 'tap' && current.strength >= strongCut && random() < 0.08) {
       const second = (lane + 2) % LANES;
       notes.push({ time: current.time, lane: second, type: 'tap', duration: 0, dir: null, strength: current.strength });
     }
@@ -339,7 +339,7 @@ export function buildDriveChart(analysis, difficultyKey) {
   if (diff.types.includes('avoid')) {
     const extra = [];
     for (let t = analysis.beatPhase + beatInterval * 8; t < duration - 2; t += beatInterval) {
-      if (random() > 0.12) continue;
+      if (random() > 0.07) continue;
       const occupied = new Set();
       for (let k = 0; k < notes.length; k++) {
         if (Math.abs(notes[k].time - t) < 0.34) occupied.add(notes[k].lane);
@@ -454,7 +454,7 @@ export function buildRelaxChart(analysis) {
       }
     }
 
-    const isBloom = current.strength > 0.62 && i % 4 === 0;
+    const isBloom = current.strength > 0.52 && (i % 3 === 0 || random() < 0.22);
     const note = base(current.time, curveX(), isBloom ? 'bloom' : 'orb');
     note.strength = current.strength;
     notes.push(note);
