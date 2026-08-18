@@ -101,7 +101,16 @@
         </div>
       </div>
 
-      <button id="back-btn" type="button" class="back-btn" data-i18n="aria.exit" data-i18n-attr="aria-label">✕</button>
+      <button id="pause-btn" type="button" class="pause-btn" data-i18n="aria.pause" data-i18n-attr="aria-label">
+        <span class="pause-bars" aria-hidden="true"></span>
+      </button>
+
+      <div id="pause-overlay" class="pause-overlay hidden">
+        <p class="pause-title" data-i18n="pause.title"></p>
+        <p id="pause-score" class="pause-score"></p>
+        <button id="resume-btn" type="button" class="primary-btn" data-i18n="pause.continue"></button>
+        <button id="save-score-btn" type="button" class="secondary-btn" data-i18n="pause.save"></button>
+      </div>
 
       <div id="loading" class="loading hidden">
         <div class="spinner"></div>

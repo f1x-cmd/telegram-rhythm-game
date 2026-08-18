@@ -1605,6 +1605,27 @@ for (const [lang, extra] of Object.entries(UX)) {
   Object.assign(DICT[lang], extra);
 }
 
+const PAUSE = {
+  en: { 'pause.title': 'Paused', 'pause.continue': 'Continue', 'pause.save': 'Save score', 'aria.pause': 'Pause' },
+  ru: { 'pause.title': 'Пауза', 'pause.continue': 'Продолжить', 'pause.save': 'Сохранить очки', 'aria.pause': 'Пауза' },
+  uk: { 'pause.title': 'Пауза', 'pause.continue': 'Продовжити', 'pause.save': 'Зберегти очки', 'aria.pause': 'Пауза' },
+  es: { 'pause.title': 'Pausa', 'pause.continue': 'Continuar', 'pause.save': 'Guardar puntuación', 'aria.pause': 'Pausa' },
+  pt: { 'pause.title': 'Pausa', 'pause.continue': 'Continuar', 'pause.save': 'Salvar pontuação', 'aria.pause': 'Pausa' },
+  de: { 'pause.title': 'Pause', 'pause.continue': 'Weiter', 'pause.save': 'Punkte speichern', 'aria.pause': 'Pause' },
+  fr: { 'pause.title': 'Pause', 'pause.continue': 'Continuer', 'pause.save': 'Sauver le score', 'aria.pause': 'Pause' },
+  it: { 'pause.title': 'Pausa', 'pause.continue': 'Continua', 'pause.save': 'Salva punteggio', 'aria.pause': 'Pausa' },
+  pl: { 'pause.title': 'Pauza', 'pause.continue': 'Kontynuuj', 'pause.save': 'Zapisz wynik', 'aria.pause': 'Pauza' },
+  tr: { 'pause.title': 'Duraklat', 'pause.continue': 'Devam', 'pause.save': 'Skoru kaydet', 'aria.pause': 'Duraklat' },
+  id: { 'pause.title': 'Jeda', 'pause.continue': 'Lanjut', 'pause.save': 'Simpan skor', 'aria.pause': 'Jeda' },
+  hi: { 'pause.title': 'विराम', 'pause.continue': 'जारी रखें', 'pause.save': 'स्कोर सेव करें', 'aria.pause': 'विराम' },
+  ar: { 'pause.title': 'إيقاف', 'pause.continue': 'متابعة', 'pause.save': 'حفظ النقاط', 'aria.pause': 'إيقاف' },
+  zh: { 'pause.title': '暂停', 'pause.continue': '继续', 'pause.save': '保存分数', 'aria.pause': '暂停' },
+};
+
+for (const [lang, extra] of Object.entries(PAUSE)) {
+  Object.assign(DICT[lang], extra);
+}
+
 /** 'pt-BR' → 'pt', 'zh-Hans-CN' → 'zh'; неизвестный код → null. */
 function normalize(code) {
   if (!code) return null;

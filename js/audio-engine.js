@@ -28,6 +28,7 @@ export class AudioEngine {
     this._inflight = new Map();
     this._noiseBuffer = null;
     this._chimeStep = 0;
+    this._pausedSong = null;
   }
 
   async init() {
@@ -81,6 +82,7 @@ export class AudioEngine {
 
   /** Позиция воспроизведения трека с учётом калибровки. */
   songTime() {
+    if (this._pausedSong != null) return this._pausedSong;
     if (!this.musicStartTime) return 0;
     return this.time - this.musicStartTime - this.offset;
   }
@@ -138,6 +140,7 @@ export class AudioEngine {
   /** Запуск трека с задержкой leadIn, чтобы первые ноты успели пролететь. */
   startMusic(leadIn = 2.5) {
     if (!this.ctx || !this.buffer) return;
+    this._pausedSong = null;
     this.stopMusic();
     this.source = this.ctx.createBufferSource();
     this.source.buffer = this.buffer;
@@ -146,12 +149,46 @@ export class AudioEngine {
     this.source.start(this.musicStartTime);
   }
 
+  /** Стоп источника; позиция песни замораживается, пока открыта пауза. */
+  pausePlayback() {
+    if (this._pausedSong != null) return;
+    this._pausedSong = this.songTime();
+    this.stopMusic();
+  }
+
+  /** Продолжить с замороженной позиции (часы — AudioContext.currentTime). */
+  resumePlayback() {
+    const songTime = this._pausedSong;
+    this._pausedSong = null;
+    if (songTime == null || !this.ctx || !this.buffer) return;
+
+    this.stopMusic();
+    const duration = this.buffer.duration;
+    const now = this.time;
+    const bufferPos = songTime + this.offset;
+    this.musicStartTime = now - songTime - this.offset;
+
+    if (bufferPos >= duration) return;
+    this.source = this.ctx.createBufferSource();
+    this.source.buffer = this.buffer;
+    this.source.connect(this.musicGain);
+    if (bufferPos <= 0) {
+      this.source.start(now - bufferPos);
+    } else {
+      this.source.start(now, bufferPos);
+    }
+  }
+
   stopMusic() {
     if (this.source) {
       try { this.source.stop(); } catch (_) { /* уже остановлен */ }
       this.source.disconnect();
       this.source = null;
     }
+  }
+
+  clearPause() {
+    this._pausedSong = null;
   }
 
   pause() {

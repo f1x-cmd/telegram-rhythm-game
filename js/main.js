@@ -4,7 +4,7 @@
  */
 
 import { MODES, TRACKS, RELAX, DRIVE_DIFFICULTY, CUSTOM_AUDIO_MAX_BYTES } from './config.js';
-import { initTelegram, storage, onBackButton } from './telegram.js';
+import { initTelegram, storage, onBackButton, onAppHidden } from './telegram.js';
 import { AudioEngine } from './audio-engine.js';
 import { analyzeAudio, buildDriveChart, buildRelaxChart } from './analysis.js';
 import { createPool, createNote } from './pools.js';
@@ -63,6 +63,9 @@ class Game {
       onOffsetChange: (ms) => this._setOffset(ms),
       onLanguageChange: (code) => this._setLanguage(code),
       onPlay: () => this.start(),
+      onPause: () => this.pauseGame(),
+      onResume: () => this.resumeGame(),
+      onSaveScore: () => this.saveScore(),
       onBack: () => this._toMenu(),
       onRetry: () => this.start(),
       onMenu: () => this._toMenu(),
@@ -90,9 +93,12 @@ class Game {
     this.ui.showScreen('menu');
 
     onBackButton(() => {
-      if (this.state === 'playing' || this.state === 'loading') this._toMenu();
+      if (this.state === 'playing') this.pauseGame();
+      else if (this.state === 'paused') this.resumeGame();
+      else if (this.state === 'loading') this._toMenu();
       else if (this.state === 'result' || this.state === 'profile') this._toMenu();
     });
+    onAppHidden(() => this.pauseGame());
   }
 
   _setCustomFile(file) {
@@ -247,23 +253,16 @@ class Game {
 
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
-        this.audio.pause();
-        cancelAnimationFrame(this._rafId);
-        this._rafId = 0;
+        this.pauseGame();
       } else {
         loadLiveOps({ force: true }).then(() => {
           const toast = refreshStartParam();
           if (toast) this.ui.showToast(t(toast));
           this._syncMenu();
         });
-        if (this.state === 'playing') {
-          this.audio.init().then(() => {
-            this._lastTime = this.audio.time;
-            if (!this._rafId) this._loop();
-          });
-        }
       }
     });
+    window.addEventListener('pagehide', () => this.pauseGame());
 
     const field = this.field;
     field.addEventListener('pointerdown', async (event) => {
@@ -400,10 +399,42 @@ class Game {
   abort() {
     cancelAnimationFrame(this._rafId);
     this._rafId = 0;
+    this.ui.hidePause();
     this.audio.stopMusic();
+    this.audio.clearPause();
     this.mode?.stop();
     this.pointers.reset();
     this.state = 'menu';
+  }
+
+  pauseGame() {
+    if (this.state !== 'playing') return;
+    this.state = 'paused';
+    cancelAnimationFrame(this._rafId);
+    this._rafId = 0;
+    this.audio.pausePlayback();
+    this.pointers.reset();
+    this.ui.showPause(this.mode?.score ?? 0);
+  }
+
+  async resumeGame() {
+    if (this.state !== 'paused') return;
+    this.ui.hidePause();
+    await this.audio.init();
+    this.audio.resumePlayback();
+    this.state = 'playing';
+    this._lastTime = this.audio.time;
+    this._loop();
+  }
+
+  saveScore() {
+    if (this.state !== 'paused' && this.state !== 'playing') return;
+    this.state = 'paused';
+    cancelAnimationFrame(this._rafId);
+    this._rafId = 0;
+    this.ui.hidePause();
+    if (this.mode) this.mode.finished = true;
+    this._finish();
   }
 
   _loop() {
@@ -449,7 +480,9 @@ class Game {
     cancelAnimationFrame(this._rafId);
     this._rafId = 0;
     this.state = 'result';
+    this.ui.hidePause();
     this.audio.stopMusic();
+    this.audio.clearPause();
 
     const stats = this.mode.stats();
     this.mode.stop();

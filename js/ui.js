@@ -61,7 +61,11 @@ export class Ui {
       barFill: $('#bar-fill'),
       shield: $('#shield'),
       modeBadge: $('#mode-badge'),
-      backBtn: $('#back-btn'),
+      pauseBtn: $('#pause-btn'),
+      pauseOverlay: $('#pause-overlay'),
+      pauseScore: $('#pause-score'),
+      resumeBtn: $('#resume-btn'),
+      saveScoreBtn: $('#save-score-btn'),
 
       resultTitle: $('#result-title'),
       resultRank: $('#result-rank'),
@@ -218,7 +222,9 @@ export class Ui {
     });
 
     this.el.playBtn.addEventListener('click', () => this.handlers.onPlay());
-    this.el.backBtn.addEventListener('click', () => this.handlers.onBack());
+    this.el.pauseBtn.addEventListener('click', () => this.handlers.onPause());
+    this.el.resumeBtn.addEventListener('click', () => this.handlers.onResume());
+    this.el.saveScoreBtn.addEventListener('click', () => this.handlers.onSaveScore());
     this.el.retryBtn.addEventListener('click', () => this.handlers.onRetry());
     this.el.menuBtn.addEventListener('click', () => this.handlers.onMenu());
     this.el.profileChip.addEventListener('click', () => this.handlers.onOpenProfile());
@@ -478,6 +484,7 @@ export class Ui {
       button.classList.toggle('selected', button.dataset.nav === (name === 'profile' ? 'profile' : 'menu'));
     }
     showBackButton(name === 'game' || name === 'result' || name === 'profile');
+    if (name !== 'game') this.hidePause();
   }
 
   setLoading(text) {
@@ -505,6 +512,20 @@ export class Ui {
     this._lastBar = -1;
     this._lastShield = null;
     this.showCoach(modeId);
+    this.hidePause();
+  }
+
+  showPause(score) {
+    if (this.el.pauseScore) {
+      this.el.pauseScore.textContent = `${t('result.points')} · ${formatNumber(score)}`;
+    }
+    this.el.pauseOverlay?.classList.remove('hidden');
+    if (this.el.pauseBtn) this.el.pauseBtn.classList.add('hidden');
+  }
+
+  hidePause() {
+    this.el.pauseOverlay?.classList.add('hidden');
+    if (this.el.pauseBtn) this.el.pauseBtn.classList.remove('hidden');
   }
 
   showCoach(modeId) {

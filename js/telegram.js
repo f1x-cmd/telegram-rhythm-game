@@ -43,6 +43,14 @@ export function onBackButton(handler) {
   } catch (_) { /* */ }
 }
 
+/** Mini App ушёл в фон: звонок, сообщение, сворачивание. */
+export function onAppHidden(handler) {
+  if (!tg?.onEvent) return;
+  try {
+    tg.onEvent('deactivated', handler);
+  } catch (_) { /* старый клиент */ }
+}
+
 /**
  * Тактильный отклик.
  * @param {'light'|'medium'|'heavy'|'soft'|'rigid'|'error'|'success'|'warning'|'selection'} kind

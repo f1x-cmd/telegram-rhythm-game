@@ -644,7 +644,8 @@ body[data-mode='relax'] { --accent: #6FE9FF; }
   background: linear-gradient(90deg, #FF3300, #FF007A);
 }
 
-.back-btn {
+.back-btn,
+.pause-btn {
   position: absolute;
   top: calc(env(safe-area-inset-top) + 10px);
   right: 10px;
@@ -655,13 +656,57 @@ body[data-mode='relax'] { --accent: #6FE9FF; }
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.45);
   color: #fff;
-  font-size: 0.9rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
   cursor: pointer;
 }
 
-[dir='rtl'] .back-btn {
+[dir='rtl'] .back-btn,
+[dir='rtl'] .pause-btn {
   right: auto;
   left: 10px;
+}
+
+.pause-btn {
+  display: grid;
+  place-items: center;
+}
+
+.pause-bars {
+  width: 11px;
+  height: 13px;
+  border-left: 3px solid #fff;
+  border-right: 3px solid #fff;
+}
+
+.pause-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 24;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 24px 20px calc(28px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(8, 8, 16, 0.35) 0%, rgba(8, 8, 16, 0.88) 55%);
+}
+
+.pause-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.pause-score {
+  margin: 0 0 8px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Загрузка */
