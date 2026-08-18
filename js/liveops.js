@@ -26,7 +26,7 @@ const DEFAULTS = {
   donatePacks: [50, 150, 500],
   donateUrl: '',
   donateBot: '',
-  telegramBot: '',
+  telegramBot: 'rhythm_game_play_bot',
   telegramApp: 'rhythm',
   forceDaily: '',
   dailyTargets: { notes: 220, score: 120000, combo: 60, perfect: 120, flow: 3 },
@@ -44,9 +44,12 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+const CONFIG_BOT = TELEGRAM_APP.bot;
+const CONFIG_APP = TELEGRAM_APP.app;
+
 function applyRuntime() {
-  TELEGRAM_APP.bot = state.telegramBot || '';
-  TELEGRAM_APP.app = state.telegramApp || 'rhythm';
+  TELEGRAM_APP.bot = state.telegramBot || CONFIG_BOT || '';
+  TELEGRAM_APP.app = state.telegramApp || CONFIG_APP || 'rhythm';
   DONATE.packs = Array.isArray(state.donatePacks) && state.donatePacks.length
     ? state.donatePacks.map(Number).filter((n) => n > 0)
     : [...DEFAULTS.donatePacks];

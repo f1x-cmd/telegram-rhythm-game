@@ -144,7 +144,7 @@ export function comboMultiplier(combo) {
  * откроет t.me/bot/app?startapp=…; пока пусто, копируется код приглашения.
  */
 export const TELEGRAM_APP = {
-  bot: '',
+  bot: 'rhythm_game_play_bot',
   app: 'rhythm',
 };
 
