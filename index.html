@@ -55,7 +55,11 @@
       </button>
 
       <p id="menu-error" class="menu-error"></p>
-      <button id="play-btn" type="button" class="primary-btn"></button>
+
+      <button id="invite-btn" type="button" class="secondary-btn menu-invite-btn" data-i18n="profile.invite"></button>
+      <p class="menu-invite-hint hint" data-i18n="menu.inviteHint"></p>
+
+      <button id="play-btn" type="button" class="primary-btn play-hero"></button>
       <p id="play-meta" class="play-meta"></p>
       <p id="play-hint" class="play-hint hidden"></p>
 
@@ -215,9 +219,8 @@
         </div>
       </div>
 
-      <div class="viral-row">
-        <button id="invite-btn" type="button" class="primary-btn" data-i18n="profile.invite"></button>
-        <button id="challenge-btn" type="button" class="secondary-btn" data-i18n="profile.challenge"></button>
+      <div class="viral-row viral-row--solo">
+        <button id="challenge-btn" type="button" class="primary-btn" data-i18n="profile.challenge"></button>
       </div>
 
       <div class="donate-bar">

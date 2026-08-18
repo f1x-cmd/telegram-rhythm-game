@@ -388,7 +388,7 @@ export class Ui {
       if (tab) this.handlers.onBoardChange(tab.dataset.board);
     });
 
-    this.el.inviteBtn.addEventListener('click', () => this.handlers.onInvite('friend'));
+    this.el.inviteBtn?.addEventListener('click', () => this.handlers.onInvite('friend'));
     this.el.challengeBtn.addEventListener('click', () => this.handlers.onInvite('challenge'));
     this.el.shareClanBtn.addEventListener('click', () => this.handlers.onInvite('clan'));
     this.el.createClanBtn.addEventListener('click', () => this.handlers.onCreateClan(this.el.clanName.value));

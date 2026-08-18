@@ -1484,7 +1484,8 @@ Object.assign(DICT.ru, {
 
 const UX = {
   en: {
-    'menu.settings': 'Language & feel',
+    'menu.settings': 'Settings',
+    'menu.inviteHint': 'Share the link — friends who open it join the leaderboard.',
     'coach.relax': 'Hold and drag — catch the lights on the line',
     'coach.drive': 'Tap the lane when a note hits the line',
     'ops.eventMult': 'Event · score ×{mult}',
@@ -1494,7 +1495,8 @@ const UX = {
     'result.challenge': 'Challenge',
   },
   ru: {
-    'menu.settings': 'Язык и ощущение',
+    'menu.settings': 'Настройки',
+    'menu.inviteHint': 'Отправьте ссылку — друг откроет игру и попадёт в таблицу.',
     'coach.relax': 'Зажмите и ведите — ловите огни на линии',
     'coach.drive': 'Нажмите дорожку, когда нота коснётся линии',
     'ops.eventMult': 'Ивент · очки ×{mult}',
@@ -1504,7 +1506,8 @@ const UX = {
     'result.challenge': 'Вызов',
   },
   uk: {
-    'menu.settings': 'Мова і відчуття',
+    'menu.settings': 'Налаштування',
+    'menu.inviteHint': 'Надішліть посилання — друг відкриє гру й потрапить у таблицю.',
     'coach.relax': 'Утримуйте й ведіть — ловіть світло на лінії',
     'coach.drive': 'Натисніть доріжку, коли нота торкнеться лінії',
     'ops.eventMult': 'Івент · очки ×{mult}',
@@ -1512,7 +1515,8 @@ const UX = {
     'menu.customHint': 'Свій трек — ок, але особисті рекорди не зберігаються.',
   },
   es: {
-    'menu.settings': 'Idioma y calibración',
+    'menu.settings': 'Ajustes',
+    'menu.inviteHint': 'Comparte el enlace — quien lo abra entrará en la tabla.',
     'coach.relax': 'Mantén y arrastra: atrapa las luces en la línea',
     'coach.drive': 'Toca el carril cuando la nota llegue a la línea',
     'ops.eventMult': 'Evento · puntos ×{mult}',
@@ -1520,7 +1524,8 @@ const UX = {
     'menu.customHint': 'Tu pista vale — los récords personales no se guardan.',
   },
   pt: {
-    'menu.settings': 'Idioma e calibragem',
+    'menu.settings': 'Configurações',
+    'menu.inviteHint': 'Envie o link — quem abrir entra na tabela.',
     'coach.relax': 'Segure e arraste — pegue as luzes na linha',
     'coach.drive': 'Toque a faixa quando a nota chegar na linha',
     'ops.eventMult': 'Evento · pontos ×{mult}',
@@ -1528,7 +1533,8 @@ const UX = {
     'menu.customHint': 'Sua faixa vale — recordes pessoais não são salvos.',
   },
   de: {
-    'menu.settings': 'Sprache & Gefühl',
+    'menu.settings': 'Einstellungen',
+    'menu.inviteHint': 'Link teilen — wer ihn öffnet, landet in der Tabelle.',
     'coach.relax': 'Halten und ziehen — fange die Lichter auf der Linie',
     'coach.drive': 'Tippe die Spur, wenn die Note die Linie trifft',
     'ops.eventMult': 'Event · Punkte ×{mult}',
@@ -1536,7 +1542,8 @@ const UX = {
     'menu.customHint': 'Eigene Tracks sind ok — persönliche Rekorde werden nicht gespeichert.',
   },
   fr: {
-    'menu.settings': 'Langue et ressenti',
+    'menu.settings': 'Réglages',
+    'menu.inviteHint': 'Partagez le lien — celui qui l’ouvre rejoint le classement.',
     'coach.relax': 'Restez appuyé et glissez — attrapez les lumières',
     'coach.drive': 'Touchez la voie quand la note atteint la ligne',
     'ops.eventMult': 'Événement · score ×{mult}',
@@ -1544,7 +1551,8 @@ const UX = {
     'menu.customHint': 'Votre piste — ok, mais les records personnels ne sont pas enregistrés.',
   },
   it: {
-    'menu.settings': 'Lingua e feeling',
+    'menu.settings': 'Impostazioni',
+    'menu.inviteHint': 'Condividi il link — chi lo apre entra in classifica.',
     'coach.relax': 'Tieni premuto e trascina — prendi le luci sulla linea',
     'coach.drive': 'Tocca la corsia quando la nota tocca la linea',
     'ops.eventMult': 'Evento · punteggio ×{mult}',
@@ -1552,7 +1560,8 @@ const UX = {
     'menu.customHint': 'La tua traccia va bene — i record personali non vengono salvati.',
   },
   pl: {
-    'menu.settings': 'Język i wyczucie',
+    'menu.settings': 'Ustawienia',
+    'menu.inviteHint': 'Wyślij link — znajomy trafi do tabeli.',
     'coach.relax': 'Przytrzymaj i przeciągnij — łap światła na linii',
     'coach.drive': 'Dotknij toru, gdy nuta trafi w linię',
     'ops.eventMult': 'Event · punkty ×{mult}',
@@ -1560,7 +1569,8 @@ const UX = {
     'menu.customHint': 'Własny utwór — ok, ale rekordy osobiste się nie zapisują.',
   },
   tr: {
-    'menu.settings': 'Dil ve his',
+    'menu.settings': 'Ayarlar',
+    'menu.inviteHint': 'Linki paylaş — açan kişi tabloya girer.',
     'coach.relax': 'Basılı tut ve kaydır — ışıkları çizgide yakala',
     'coach.drive': 'Nota çizgiye gelince şeride dokun',
     'ops.eventMult': 'Etkinlik · skor ×{mult}',
@@ -1568,7 +1578,8 @@ const UX = {
     'menu.customHint': 'Kendi parçan tamam — kişisel rekorlar kaydedilmez.',
   },
   id: {
-    'menu.settings': 'Bahasa & rasa',
+    'menu.settings': 'Pengaturan',
+    'menu.inviteHint': 'Bagikan tautan — teman yang membuka masuk ke papan.',
     'coach.relax': 'Tahan dan geser — tangkap cahaya di garis',
     'coach.drive': 'Ketuk lajur saat not menyentuh garis',
     'ops.eventMult': 'Event · skor ×{mult}',
@@ -1576,7 +1587,8 @@ const UX = {
     'menu.customHint': 'Lagu sendiri boleh — rekor pribadi tidak disimpan.',
   },
   hi: {
-    'menu.settings': 'भाषा और फील',
+    'menu.settings': 'सेटिंग्स',
+    'menu.inviteHint': 'लिंक भेजें — दोस्त खोले तो लीडरबोर्ड में आ जाएगा।',
     'coach.relax': 'दबाकर खींचें — लाइन पर रोशनियाँ पकड़ें',
     'coach.drive': 'नोट लाइन पर आए तो लेन टैप करें',
     'ops.eventMult': 'इवेंट · स्कोर ×{mult}',
@@ -1584,7 +1596,8 @@ const UX = {
     'menu.customHint': 'अपना ट्रैक चलेगा — व्यक्तिगत रिकॉर्ड सेव नहीं होते।',
   },
   ar: {
-    'menu.settings': 'اللغة والإحساس',
+    'menu.settings': 'الإعدادات',
+    'menu.inviteHint': 'شارك الرابط — من يفتحه ينضم إلى اللوحة.',
     'coach.relax': 'اضغط واسحب — التقط الأضواء على الخط',
     'coach.drive': 'المس المسار عندما تلمس النغمة الخط',
     'ops.eventMult': 'حدث · النقاط ×{mult}',
@@ -1592,7 +1605,8 @@ const UX = {
     'menu.customHint': 'مسارك مقبول — السجلات الشخصية لا تُحفظ.',
   },
   zh: {
-    'menu.settings': '语言与手感',
+    'menu.settings': '设置',
+    'menu.inviteHint': '分享链接——好友打开后会进入排行榜。',
     'coach.relax': '按住拖动——在判定线上接住光点',
     'coach.drive': '音符碰到判定线时点按对应轨道',
     'ops.eventMult': '活动 · 分数 ×{mult}',
