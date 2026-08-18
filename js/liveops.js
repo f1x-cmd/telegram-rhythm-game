@@ -130,6 +130,11 @@ export function activeTracks() {
   return TRACKS.filter((track) => !hidden.has(track.id));
 }
 
+/** Официальные треки, подходящие режиму RELAX / DRIVE. */
+export function tracksForMode(modeId) {
+  return activeTracks().filter((track) => track.mood === 'both' || track.mood === modeId);
+}
+
 export function isTrackOn(id) {
   return !(state.disabledTracks || []).includes(id);
 }

@@ -4,9 +4,9 @@
  */
 
 import { MODES, DRIVE_DIFFICULTY, rankFor } from './config.js';
-import { shareResult, getUser, openDonate, peekLocal, storage, showBackButton } from './telegram.js';
+import { shareResult, getUser, openDonate, peekLocal, storage, showBackButton, isTelegram, haptic } from './telegram.js';
 import { LANGUAGES, t, formatNumber, languagePreference, applyStaticText, isRtl } from './i18n.js';
-import { donateRuntime, liveops, activeTracks, isBanned, activeEvent } from './liveops.js';
+import { donateRuntime, liveops, activeTracks, tracksForMode, isBanned, activeEvent } from './liveops.js';
 import { me } from './social.js';
 import { buildInvite } from './social.js';
 
@@ -34,9 +34,16 @@ export class Ui {
       modeList: $('#mode-list'),
       difficultyRow: $('#difficulty-row'),
       difficultyList: $('#difficulty-list'),
-      trackList: $('#track-list'),
+      trackCard: $('#track-card'),
+      trackCardTitle: $('#track-card-title'),
+      trackCardMeta: $('#track-card-meta'),
+      library: $('#library'),
+      libraryList: $('#library-list'),
+      libraryEmpty: $('#library-empty'),
+      librarySearch: $('#library-search'),
+      libraryTabs: $('#library-tabs'),
+      libraryClose: $('#library-close'),
       fileInput: $('#custom-track'),
-      customName: $('#custom-track-name'),
       customHint: $('#custom-track-hint'),
       dailyTitle: $('#daily-title'),
       dailyStatus: $('#daily-status'),
@@ -66,6 +73,7 @@ export class Ui {
       pauseScore: $('#pause-score'),
       resumeBtn: $('#resume-btn'),
       saveScoreBtn: $('#save-score-btn'),
+      pauseMenuBtn: $('#pause-menu-btn'),
 
       resultTitle: $('#result-title'),
       resultRank: $('#result-rank'),
@@ -122,10 +130,16 @@ export class Ui {
     this._board = 'global';
     this._toastHideAt = 0;
     this._lastResultScore = 0;
+    this._libraryTab = 'mode';
+    this._libraryQuery = '';
+    this._menuState = null;
 
     this.hud = {
       showJudgment: (text, cls) => this.showJudgment(text, cls),
     };
+
+    if (isTelegram) document.body.classList.add('in-telegram');
+    this.el.downloadBtn?.classList.toggle('hidden', isTelegram);
 
     this._buildMenu();
     this._fillProfileStatics();
@@ -149,7 +163,7 @@ export class Ui {
     `).join('');
     this.el.difficultyList.innerHTML = diffHtml;
 
-    this._fillTracks();
+    this._paintLibraryTabs();
 
     const langHtml = [{ code: 'auto', name: t('lang.auto') }, ...LANGUAGES]
       .map((lang) => `<option value="${lang.code}">${lang.name}</option>`)
@@ -158,21 +172,113 @@ export class Ui {
     this.el.langSelect.value = languagePreference();
   }
 
-  _fillTracks() {
-    const tracks = activeTracks();
-    if (!tracks.length) {
-      this.el.trackList.innerHTML = `<p class="hint">${t('ops.noTracks')}</p>`;
-      return;
+  _paintLibraryTabs() {
+    if (!this.el.libraryTabs) return;
+    const labels = {
+      mode: MODES[this._menuState?.mode]?.title || t('library.tabMode'),
+      mine: t('library.tabMine'),
+      all: t('library.tabAll'),
+    };
+    for (const button of this.el.libraryTabs.querySelectorAll('[data-lib-tab]')) {
+      button.textContent = labels[button.dataset.libTab] || '';
+      button.classList.toggle('selected', button.dataset.libTab === this._libraryTab);
     }
-    this.el.trackList.innerHTML = tracks.map((track) => `
-      <button type="button" class="track-btn" data-track="${track.id}">
-        <span class="track-info">
-          <span class="track-title">${track.title}</span>
-          <span class="track-record" data-record="${track.id}"></span>
-        </span>
-        <span class="track-mood">${t(`mood.${track.mood}`)}</span>
-      </button>
-    `).join('');
+    if (this.el.librarySearch) this.el.librarySearch.placeholder = t('library.search');
+  }
+
+  isLibraryOpen() {
+    return Boolean(this.el.library && !this.el.library.classList.contains('hidden'));
+  }
+
+  openLibrary() {
+    if (!this.el.library) return;
+    const state = this._menuState || {};
+    this._libraryQuery = '';
+    if (this.el.librarySearch) this.el.librarySearch.value = '';
+    this._libraryTab = state.customFile ? 'mine' : 'mode';
+    this._paintLibraryTabs();
+    this._fillLibrary();
+    this.el.library.classList.remove('hidden');
+    document.body.dataset.library = 'open';
+    this.el.trackCard?.setAttribute('aria-expanded', 'true');
+    haptic('selection');
+    this._syncBackButton();
+  }
+
+  closeLibrary() {
+    this.el.library?.classList.add('hidden');
+    delete document.body.dataset.library;
+    this.el.trackCard?.setAttribute('aria-expanded', 'false');
+    this._syncBackButton();
+  }
+
+  _syncBackButton() {
+    const screen = document.body.dataset.screen;
+    showBackButton(
+      this.isLibraryOpen()
+      || screen === 'game'
+      || screen === 'result'
+      || screen === 'profile'
+    );
+  }
+
+  _fillLibrary() {
+    if (!this.el.libraryList) return;
+    const state = this._menuState || {};
+    const query = this._libraryQuery.trim().toLowerCase();
+    const catalog = activeTracks();
+    const modeId = state.mode || 'relax';
+
+    let rows = [];
+    if (this._libraryTab === 'mine') {
+      if (state.customFile) {
+        rows = [{
+          id: 'custom',
+          title: state.customFile.name.replace(/\.[^.]+$/, ''),
+          mood: 'both',
+          custom: true,
+        }];
+      }
+    } else if (this._libraryTab === 'mode') {
+      rows = tracksForMode(modeId);
+    } else {
+      rows = catalog;
+    }
+
+    if (query) {
+      rows = rows.filter((track) => track.title.toLowerCase().includes(query));
+    }
+
+    this.el.libraryList.innerHTML = rows.map((track) => {
+      const selected = track.custom
+        ? Boolean(state.customFile)
+        : !state.customFile && track.id === state.trackId;
+      const best = track.custom ? 0 : (state.records?.[track.id] ?? 0);
+      const record = track.custom
+        ? t('library.custom')
+        : best > 0
+          ? t('track.record', { score: formatNumber(best) })
+          : t('track.noRecord');
+      return `
+        <button type="button" class="track-btn${selected ? ' selected' : ''}" data-track="${esc(track.id)}">
+          <span class="track-info">
+            <span class="track-title">${esc(track.title)}</span>
+            <span class="track-record">${esc(record)}</span>
+          </span>
+          <span class="track-mood">${esc(t(`mood.${track.mood}`))}</span>
+        </button>`;
+    }).join('');
+
+    const empty = !rows.length
+      ? (this._libraryTab === 'mine' && !query ? t('library.emptyMine') : t('library.empty'))
+      : '';
+    if (this.el.libraryEmpty) {
+      this.el.libraryEmpty.textContent = empty;
+      this.el.libraryEmpty.classList.toggle('hidden', !empty);
+    }
+    if (this.el.librarySearch) {
+      this.el.librarySearch.classList.toggle('hidden', catalog.length < 8 && !query);
+    }
   }
 
   /** Перерисовка после смены языка: статика + собранные из шаблонов списки. */
@@ -180,6 +286,7 @@ export class Ui {
     applyStaticText();
     this._buildMenu();
     this._fillProfileStatics();
+    if (this._menuState) this.syncMenu(this._menuState);
   }
 
   _fillProfileStatics() {
@@ -201,14 +308,48 @@ export class Ui {
       if (button) this.handlers.onDifficultyChange(button.dataset.difficulty);
     });
 
-    this.el.trackList.addEventListener('click', (event) => {
+    this.el.trackCard.addEventListener('click', () => this.openLibrary());
+    this.el.libraryClose.addEventListener('click', () => this.closeLibrary());
+    this.el.library.addEventListener('click', (event) => {
+      if (event.target === this.el.library) this.closeLibrary();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      if (this.isLibraryOpen()) {
+        event.preventDefault();
+        this.closeLibrary();
+      }
+    });
+    this.el.libraryTabs.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-lib-tab]');
+      if (!button) return;
+      haptic('selection');
+      this._libraryTab = button.dataset.libTab;
+      this._paintLibraryTabs();
+      this._fillLibrary();
+    });
+    this.el.librarySearch.addEventListener('input', () => {
+      this._libraryQuery = this.el.librarySearch.value;
+      this._fillLibrary();
+    });
+    this.el.libraryList.addEventListener('click', (event) => {
       const button = event.target.closest('[data-track]');
-      if (button) this.handlers.onTrackChange(button.dataset.track);
+      if (!button) return;
+      haptic('selection');
+      if (button.dataset.track === 'custom') {
+        this.closeLibrary();
+        return;
+      }
+      this.handlers.onTrackChange(button.dataset.track);
+      this.closeLibrary();
     });
 
     this.el.fileInput.addEventListener('change', (event) => {
       const file = event.target.files?.[0];
-      if (file) this.handlers.onCustomFile(file);
+      if (!file) return;
+      this._libraryTab = 'mine';
+      this.handlers.onCustomFile(file);
+      this.closeLibrary();
     });
 
     this.el.offsetInput.addEventListener('input', () => {
@@ -225,6 +366,11 @@ export class Ui {
     this.el.pauseBtn.addEventListener('click', () => this.handlers.onPause());
     this.el.resumeBtn.addEventListener('click', () => this.handlers.onResume());
     this.el.saveScoreBtn.addEventListener('click', () => this.handlers.onSaveScore());
+    this.el.pauseMenuBtn?.addEventListener('click', () => this.handlers.onBack());
+    this.el.pauseOverlay?.addEventListener('click', (event) => {
+      if (event.target.closest('button')) return;
+      this.handlers.onResume();
+    });
     this.el.retryBtn.addEventListener('click', () => this.handlers.onRetry());
     this.el.menuBtn.addEventListener('click', () => this.handlers.onMenu());
     this.el.profileChip.addEventListener('click', () => this.handlers.onOpenProfile());
@@ -280,24 +426,16 @@ export class Ui {
   }
 
   syncMenu(state) {
-    this._fillTracks();
+    this._menuState = state;
     this._fillProfileStatics();
+    this._paintLibraryTabs();
+    if (this.isLibraryOpen()) this._fillLibrary();
 
     for (const button of this.el.modeList.querySelectorAll('[data-mode]')) {
       button.classList.toggle('selected', button.dataset.mode === state.mode);
     }
     for (const button of this.el.difficultyList.querySelectorAll('[data-difficulty]')) {
       button.classList.toggle('selected', button.dataset.difficulty === state.difficulty);
-    }
-    for (const button of this.el.trackList.querySelectorAll('[data-track]')) {
-      button.classList.toggle('selected', !state.customFile && button.dataset.track === state.trackId);
-    }
-
-    for (const label of this.el.trackList.querySelectorAll('[data-record]')) {
-      const best = state.records?.[label.dataset.record] ?? 0;
-      label.textContent = best > 0
-        ? t('track.record', { score: formatNumber(best) })
-        : t('track.noRecord');
     }
 
     if (state.daily) {
@@ -310,28 +448,42 @@ export class Ui {
     }
 
     this.el.difficultyRow.classList.toggle('hidden', state.mode !== 'drive');
-    this.el.customName.textContent = state.customFile ? state.customFile.name : '';
     this.el.offsetInput.value = String(state.offsetMs);
     this.el.offsetValue.textContent = this._offsetLabel(state.offsetMs);
     this.el.langSelect.value = languagePreference();
 
     const mode = MODES[state.mode];
-    this.el.playBtn.textContent = t('menu.play', { mode: mode.title });
     this.el.playBtn.style.setProperty('--accent', mode.accent);
     document.body.dataset.mode = state.mode;
 
     const catalog = activeTracks();
+    const current = catalog.find((item) => item.id === state.trackId) ?? catalog[0];
     const trackTitle = state.customFile
       ? state.customFile.name.replace(/\.[^.]+$/, '')
-      : (catalog.find((item) => item.id === state.trackId) ?? catalog[0])?.title ?? '—';
-    const event = activeEvent();
-    const metaParts = [trackTitle];
-    if (event) {
-      metaParts.unshift(event.name
-        ? t('ops.eventNamed', { name: event.name, mult: event.mult })
-        : t('ops.eventMult', { mult: event.mult }));
+      : current?.title ?? '—';
+    this.el.playBtn.textContent = t('menu.play', { mode: trackTitle });
+    const best = state.customFile ? 0 : (state.records?.[state.trackId] ?? 0);
+    if (this.el.trackCardTitle) this.el.trackCardTitle.textContent = trackTitle;
+    if (this.el.trackCardMeta) {
+      this.el.trackCardMeta.textContent = state.customFile
+        ? t('library.custom')
+        : [
+          current ? t(`mood.${current.mood}`) : '',
+          best > 0 ? t('track.record', { score: formatNumber(best) }) : t('track.noRecord'),
+        ].filter(Boolean).join(' · ');
     }
-    if (this.el.playMeta) this.el.playMeta.textContent = metaParts.join(' · ');
+    this.el.trackCard?.classList.toggle('custom', Boolean(state.customFile));
+
+    const event = activeEvent();
+    if (this.el.playMeta) {
+      const text = event
+        ? (event.name
+          ? t('ops.eventNamed', { name: event.name, mult: event.mult })
+          : t('ops.eventMult', { mult: event.mult }))
+        : '';
+      this.el.playMeta.textContent = text;
+      this.el.playMeta.classList.toggle('hidden', !text);
+    }
 
     if (state.profile) this._paintChip(state.profile);
 
@@ -483,8 +635,9 @@ export class Ui {
     for (const button of this.el.appNav.querySelectorAll('[data-nav]')) {
       button.classList.toggle('selected', button.dataset.nav === (name === 'profile' ? 'profile' : 'menu'));
     }
-    showBackButton(name === 'game' || name === 'result' || name === 'profile');
     if (name !== 'game') this.hidePause();
+    if (name !== 'menu') this.closeLibrary();
+    this._syncBackButton();
   }
 
   setLoading(text) {
@@ -642,6 +795,7 @@ export class Ui {
 
     this._shareUrl = this._buildShareCard(stats, meta, rank);
     this.el.shareImage.src = this._shareUrl;
+    this.el.downloadBtn?.classList.toggle('hidden', isTelegram);
 
     this.showScreen('result');
   }

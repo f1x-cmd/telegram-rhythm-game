@@ -112,10 +112,11 @@ export const MODES = {
 };
 
 export const TRACKS = [
-  { id: 'slow60',   title: 'Slow 60',       url: 'audio/slow60.mp3',        mood: 'relax' },
-  { id: 'horizon',  title: 'Neon Horizon',  url: 'audio/Neon Horizon.mp3',  mood: 'both' },
-  { id: 'pulse',    title: 'Neon Pulse',    url: 'audio/Neon Pulse.mp3',    mood: 'both' },
-  { id: 'velocity', title: 'Neon Velocity', url: 'audio/Neon Velocity.mp3', mood: 'drive' },
+  { id: 'slow60',      title: 'Slow 60',       url: 'audio/slow60.mp3',        mood: 'relax' },
+  { id: 'horizon',     title: 'Neon Horizon',  url: 'audio/Neon Horizon.mp3',  mood: 'both' },
+  { id: 'pulse',       title: 'Neon Pulse',    url: 'audio/Neon Pulse.mp3',    mood: 'both' },
+  { id: 'velocity',    title: 'Neon Velocity', url: 'audio/Neon Velocity.mp3', mood: 'drive' },
+  { id: 'fastsnakes',  title: 'Fast Snakes',   url: 'audio/fastSnakes.mp3',    mood: 'drive' },
 ];
 
 /** Ранги по итоговой точности. */

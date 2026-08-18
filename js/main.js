@@ -4,7 +4,7 @@
  */
 
 import { MODES, TRACKS, RELAX, DRIVE_DIFFICULTY, CUSTOM_AUDIO_MAX_BYTES } from './config.js';
-import { initTelegram, storage, onBackButton, onAppHidden } from './telegram.js';
+import { initTelegram, storage, onBackButton, onAppHidden, haptic } from './telegram.js';
 import { AudioEngine } from './audio-engine.js';
 import { analyzeAudio, buildDriveChart, buildRelaxChart } from './analysis.js';
 import { createPool, createNote } from './pools.js';
@@ -22,11 +22,12 @@ import {
   leaveClan, takeToast, refreshStartParam, syncSelfScore, me,
 } from './social.js';
 import {
-  loadLiveOps, liveops, activeTracks, scoreMultiplier, shieldConfig, isBanned,
+  loadLiveOps, liveops, activeTracks, tracksForMode, scoreMultiplier, shieldConfig, isBanned,
 } from './liveops.js';
 import { loadTelemetry, logEvent } from './telemetry.js';
 
 const OFFSET_KEY = 'audio_offset';
+const LAST_TRACK_KEY = 'last_track_v1';
 
 class Game {
   constructor() {
@@ -49,6 +50,7 @@ class Game {
     this.difficulty = 'medium';
     this.trackId = TRACKS[0].id;
     this.customFile = null;
+    this._lastByMode = { relax: 'slow60', drive: 'velocity' };
     this.offsetMs = 0;
     this.board = 'global';
 
@@ -58,7 +60,7 @@ class Game {
     this.ui = new Ui({
       onModeChange: (id) => this._selectMode(id),
       onDifficultyChange: (key) => { this.difficulty = key; this._syncMenu(); },
-      onTrackChange: (id) => { this.trackId = id; this.customFile = null; this._warmTrack(); this._syncMenu(); },
+      onTrackChange: (id) => this._selectTrack(id),
       onCustomFile: (file) => this._setCustomFile(file),
       onOffsetChange: (ms) => this._setOffset(ms),
       onLanguageChange: (code) => this._setLanguage(code),
@@ -93,8 +95,12 @@ class Game {
     this.ui.showScreen('menu');
 
     onBackButton(() => {
+      if (this.ui.isLibraryOpen()) {
+        this.ui.closeLibrary();
+        return;
+      }
       if (this.state === 'playing') this.pauseGame();
-      else if (this.state === 'paused') this.resumeGame();
+      else if (this.state === 'paused') this._toMenu();
       else if (this.state === 'loading') this._toMenu();
       else if (this.state === 'result' || this.state === 'profile') this._toMenu();
     });
@@ -131,16 +137,48 @@ class Game {
     await loadDaily();
     await loadCareer();
     await loadSocial();
+    const savedTracks = await storage.get(LAST_TRACK_KEY);
+    if (savedTracks) {
+      try {
+        const parsed = JSON.parse(savedTracks);
+        if (parsed && typeof parsed === 'object') {
+          this._lastByMode = { ...this._lastByMode, ...parsed };
+        }
+      } catch (_) { /* битая запись */ }
+    }
     const toast = takeToast();
     const featured = liveops().featuredMode;
     if (featured && MODES[featured]) this.modeId = featured;
-    const tracks = activeTracks();
-    if (tracks.length && !tracks.some((item) => item.id === this.trackId)) {
-      this.trackId = tracks[0].id;
-    }
+    const picked = this._trackForMode(this.modeId);
+    if (picked) this.trackId = picked;
     this._syncMenu();
     this._warmTrack();
     if (toast) this.ui.showToast(t(toast));
+  }
+
+  _trackForMode(modeId) {
+    const list = tracksForMode(modeId);
+    const fallback = activeTracks();
+    const pool = list.length ? list : fallback;
+    if (!pool.length) return null;
+    if (pool.some((item) => item.id === this.trackId)) return this.trackId;
+    const last = this._lastByMode[modeId];
+    if (pool.some((item) => item.id === last)) return last;
+    return pool[0].id;
+  }
+
+  _rememberTrack() {
+    if (this.customFile) return;
+    this._lastByMode[this.modeId] = this.trackId;
+    storage.set(LAST_TRACK_KEY, JSON.stringify(this._lastByMode));
+  }
+
+  _selectTrack(id) {
+    this.trackId = id;
+    this.customFile = null;
+    this._rememberTrack();
+    this._warmTrack();
+    this._syncMenu();
   }
 
   _warmTrack() {
@@ -166,10 +204,10 @@ class Game {
   _selectMode(id) {
     if (!MODES[id]) return;
     this.modeId = id;
-    // Подсказываем подходящий трек при переключении режима
-    const tracks = activeTracks();
-    const suitable = tracks.find((track) => track.mood === id) ?? tracks[0];
-    if (suitable && !this.customFile) this.trackId = suitable.id;
+    if (!this.customFile) {
+      const picked = this._trackForMode(id);
+      if (picked) this.trackId = picked;
+    }
     this._warmTrack();
     this._syncMenu();
   }
@@ -384,6 +422,7 @@ class Game {
 
       this.ui.setLoading('');
       this.state = 'playing';
+      this._rememberTrack();
       this._playStartedAt = Date.now();
       this._lastTime = this.audio.time;
       this._loop();
@@ -414,11 +453,13 @@ class Game {
     this._rafId = 0;
     this.audio.pausePlayback();
     this.pointers.reset();
+    haptic('medium');
     this.ui.showPause(this.mode?.score ?? 0);
   }
 
   async resumeGame() {
     if (this.state !== 'paused') return;
+    haptic('light');
     this.ui.hidePause();
     await this.audio.init();
     this.audio.resumePlayback();

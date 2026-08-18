@@ -6,6 +6,7 @@
 - `Neon Horizon.mp3`
 - `Neon Pulse.mp3`
 - `Neon Velocity.mp3`
+- `fastSnakes.mp3` — быстрый DRIVE
 
 **Важно:** открывайте игру через локальный HTTP-сервер, а не двойным кликом по `index.html`:
 

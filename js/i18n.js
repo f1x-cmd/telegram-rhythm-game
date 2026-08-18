@@ -1606,23 +1606,112 @@ for (const [lang, extra] of Object.entries(UX)) {
 }
 
 const PAUSE = {
-  en: { 'pause.title': 'Paused', 'pause.continue': 'Continue', 'pause.save': 'Save score', 'aria.pause': 'Pause' },
-  ru: { 'pause.title': 'Пауза', 'pause.continue': 'Продолжить', 'pause.save': 'Сохранить очки', 'aria.pause': 'Пауза' },
-  uk: { 'pause.title': 'Пауза', 'pause.continue': 'Продовжити', 'pause.save': 'Зберегти очки', 'aria.pause': 'Пауза' },
-  es: { 'pause.title': 'Pausa', 'pause.continue': 'Continuar', 'pause.save': 'Guardar puntuación', 'aria.pause': 'Pausa' },
-  pt: { 'pause.title': 'Pausa', 'pause.continue': 'Continuar', 'pause.save': 'Salvar pontuação', 'aria.pause': 'Pausa' },
-  de: { 'pause.title': 'Pause', 'pause.continue': 'Weiter', 'pause.save': 'Punkte speichern', 'aria.pause': 'Pause' },
-  fr: { 'pause.title': 'Pause', 'pause.continue': 'Continuer', 'pause.save': 'Sauver le score', 'aria.pause': 'Pause' },
-  it: { 'pause.title': 'Pausa', 'pause.continue': 'Continua', 'pause.save': 'Salva punteggio', 'aria.pause': 'Pausa' },
-  pl: { 'pause.title': 'Pauza', 'pause.continue': 'Kontynuuj', 'pause.save': 'Zapisz wynik', 'aria.pause': 'Pauza' },
-  tr: { 'pause.title': 'Duraklat', 'pause.continue': 'Devam', 'pause.save': 'Skoru kaydet', 'aria.pause': 'Duraklat' },
-  id: { 'pause.title': 'Jeda', 'pause.continue': 'Lanjut', 'pause.save': 'Simpan skor', 'aria.pause': 'Jeda' },
-  hi: { 'pause.title': 'विराम', 'pause.continue': 'जारी रखें', 'pause.save': 'स्कोर सेव करें', 'aria.pause': 'विराम' },
-  ar: { 'pause.title': 'إيقاف', 'pause.continue': 'متابعة', 'pause.save': 'حفظ النقاط', 'aria.pause': 'إيقاف' },
-  zh: { 'pause.title': '暂停', 'pause.continue': '继续', 'pause.save': '保存分数', 'aria.pause': '暂停' },
+  en: { 'pause.title': 'Paused', 'pause.continue': 'Continue', 'pause.save': 'Save score', 'pause.menu': 'To menu', 'aria.pause': 'Pause' },
+  ru: { 'pause.title': 'Пауза', 'pause.continue': 'Продолжить', 'pause.save': 'Сохранить очки', 'pause.menu': 'В меню', 'aria.pause': 'Пауза' },
+  uk: { 'pause.title': 'Пауза', 'pause.continue': 'Продовжити', 'pause.save': 'Зберегти очки', 'pause.menu': 'У меню', 'aria.pause': 'Пауза' },
+  es: { 'pause.title': 'Pausa', 'pause.continue': 'Continuar', 'pause.save': 'Guardar puntuación', 'pause.menu': 'Al menú', 'aria.pause': 'Pausa' },
+  pt: { 'pause.title': 'Pausa', 'pause.continue': 'Continuar', 'pause.save': 'Salvar pontuação', 'pause.menu': 'Ao menu', 'aria.pause': 'Pausa' },
+  de: { 'pause.title': 'Pause', 'pause.continue': 'Weiter', 'pause.save': 'Punkte speichern', 'pause.menu': 'Zum Menü', 'aria.pause': 'Pause' },
+  fr: { 'pause.title': 'Pause', 'pause.continue': 'Continuer', 'pause.save': 'Sauver le score', 'pause.menu': 'Au menu', 'aria.pause': 'Pause' },
+  it: { 'pause.title': 'Pausa', 'pause.continue': 'Continua', 'pause.save': 'Salva punteggio', 'pause.menu': 'Al menu', 'aria.pause': 'Pausa' },
+  pl: { 'pause.title': 'Pauza', 'pause.continue': 'Kontynuuj', 'pause.save': 'Zapisz wynik', 'pause.menu': 'Do menu', 'aria.pause': 'Pauza' },
+  tr: { 'pause.title': 'Duraklat', 'pause.continue': 'Devam', 'pause.save': 'Skoru kaydet', 'pause.menu': 'Menüye', 'aria.pause': 'Duraklat' },
+  id: { 'pause.title': 'Jeda', 'pause.continue': 'Lanjut', 'pause.save': 'Simpan skor', 'pause.menu': 'Ke menu', 'aria.pause': 'Jeda' },
+  hi: { 'pause.title': 'विराम', 'pause.continue': 'जारी रखें', 'pause.save': 'स्कोर सेव करें', 'pause.menu': 'मेनू पर', 'aria.pause': 'विराम' },
+  ar: { 'pause.title': 'إيقاف', 'pause.continue': 'متابعة', 'pause.save': 'حفظ النقاط', 'pause.menu': 'إلى القائمة', 'aria.pause': 'إيقاف' },
+  zh: { 'pause.title': '暂停', 'pause.continue': '继续', 'pause.save': '保存分数', 'pause.menu': '回菜单', 'aria.pause': '暂停' },
 };
 
 for (const [lang, extra] of Object.entries(PAUSE)) {
+  Object.assign(DICT[lang], extra);
+}
+
+const LIBRARY = {
+  en: {
+    'library.title': 'Library',
+    'library.tabMode': 'For mode',
+    'library.tabMine': 'Mine',
+    'library.tabAll': 'All',
+    'library.search': 'Search tracks',
+    'library.empty': 'Nothing found',
+    'library.emptyMine': 'Upload a file to play your own track',
+    'library.close': 'Close',
+    'library.custom': 'Your file',
+  },
+  ru: {
+    'library.title': 'Библиотека',
+    'library.tabMode': 'Для режима',
+    'library.tabMine': 'Мои',
+    'library.tabAll': 'Все',
+    'library.search': 'Поиск треков',
+    'library.empty': 'Ничего не найдено',
+    'library.emptyMine': 'Загрузите файл — появится в этой полке',
+    'library.close': 'Закрыть',
+    'library.custom': 'Свой файл',
+  },
+  uk: {
+    'library.title': 'Бібліотека', 'library.tabMode': 'Для режиму', 'library.tabMine': 'Мої', 'library.tabAll': 'Усі',
+    'library.search': 'Пошук треків', 'library.empty': 'Нічого не знайдено',
+    'library.emptyMine': 'Завантажте файл — він з’явиться тут', 'library.close': 'Закрити', 'library.custom': 'Свій файл',
+  },
+  es: {
+    'library.title': 'Biblioteca', 'library.tabMode': 'Del modo', 'library.tabMine': 'Mías', 'library.tabAll': 'Todas',
+    'library.search': 'Buscar pistas', 'library.empty': 'Nada encontrado',
+    'library.emptyMine': 'Sube un archivo para verlo aquí', 'library.close': 'Cerrar', 'library.custom': 'Tu archivo',
+  },
+  pt: {
+    'library.title': 'Biblioteca', 'library.tabMode': 'Do modo', 'library.tabMine': 'Minhas', 'library.tabAll': 'Todas',
+    'library.search': 'Buscar faixas', 'library.empty': 'Nada encontrado',
+    'library.emptyMine': 'Envie um arquivo para ver aqui', 'library.close': 'Fechar', 'library.custom': 'Seu arquivo',
+  },
+  de: {
+    'library.title': 'Bibliothek', 'library.tabMode': 'Für den Modus', 'library.tabMine': 'Meine', 'library.tabAll': 'Alle',
+    'library.search': 'Tracks suchen', 'library.empty': 'Nichts gefunden',
+    'library.emptyMine': 'Lade eine Datei hoch, dann erscheint sie hier', 'library.close': 'Schließen', 'library.custom': 'Eigene Datei',
+  },
+  fr: {
+    'library.title': 'Bibliothèque', 'library.tabMode': 'Du mode', 'library.tabMine': 'Les miennes', 'library.tabAll': 'Toutes',
+    'library.search': 'Rechercher', 'library.empty': 'Aucun résultat',
+    'library.emptyMine': 'Ajoutez un fichier pour le voir ici', 'library.close': 'Fermer', 'library.custom': 'Votre fichier',
+  },
+  it: {
+    'library.title': 'Libreria', 'library.tabMode': 'Per la modalità', 'library.tabMine': 'Le mie', 'library.tabAll': 'Tutte',
+    'library.search': 'Cerca brani', 'library.empty': 'Nessun risultato',
+    'library.emptyMine': 'Carica un file per vederlo qui', 'library.close': 'Chiudi', 'library.custom': 'Il tuo file',
+  },
+  pl: {
+    'library.title': 'Biblioteka', 'library.tabMode': 'Do trybu', 'library.tabMine': 'Moje', 'library.tabAll': 'Wszystkie',
+    'library.search': 'Szukaj utworów', 'library.empty': 'Nic nie znaleziono',
+    'library.emptyMine': 'Wgraj plik, pojawi się tutaj', 'library.close': 'Zamknij', 'library.custom': 'Twój plik',
+  },
+  tr: {
+    'library.title': 'Kitaplık', 'library.tabMode': 'Moda göre', 'library.tabMine': 'Benimkiler', 'library.tabAll': 'Tümü',
+    'library.search': 'Parça ara', 'library.empty': 'Sonuç yok',
+    'library.emptyMine': 'Dosya yükle, burada görünür', 'library.close': 'Kapat', 'library.custom': 'Senin dosyan',
+  },
+  id: {
+    'library.title': 'Perpustakaan', 'library.tabMode': 'Untuk mode', 'library.tabMine': 'Saya', 'library.tabAll': 'Semua',
+    'library.search': 'Cari lagu', 'library.empty': 'Tidak ada hasil',
+    'library.emptyMine': 'Unggah file agar muncul di sini', 'library.close': 'Tutup', 'library.custom': 'File kamu',
+  },
+  hi: {
+    'library.title': 'लाइब्रेरी', 'library.tabMode': 'मोड के लिए', 'library.tabMine': 'मेरे', 'library.tabAll': 'सभी',
+    'library.search': 'ट्रैक खोजें', 'library.empty': 'कुछ नहीं मिला',
+    'library.emptyMine': 'फ़ाइल अपलोड करें, यहाँ दिखेगी', 'library.close': 'बंद करें', 'library.custom': 'आपकी फ़ाइल',
+  },
+  ar: {
+    'library.title': 'المكتبة', 'library.tabMode': 'حسب الوضع', 'library.tabMine': 'ملفاتي', 'library.tabAll': 'الكل',
+    'library.search': 'بحث عن مقطع', 'library.empty': 'لا نتائج',
+    'library.emptyMine': 'ارفع ملفًا ليظهر هنا', 'library.close': 'إغلاق', 'library.custom': 'ملفك',
+  },
+  zh: {
+    'library.title': '曲库', 'library.tabMode': '适合模式', 'library.tabMine': '我的', 'library.tabAll': '全部',
+    'library.search': '搜索曲目', 'library.empty': '没有结果',
+    'library.emptyMine': '上传文件后会出现在这里', 'library.close': '关闭', 'library.custom': '你的文件',
+  },
+};
+
+for (const [lang, extra] of Object.entries(LIBRARY)) {
   Object.assign(DICT[lang], extra);
 }
 
