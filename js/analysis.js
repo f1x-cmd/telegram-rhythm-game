@@ -3,7 +3,8 @@
  * генерация карт нот для режимов DRIVE и RELAX.
  */
 
-import { LANES, DRIVE_DIFFICULTY, RELAX, MASH, OFFICE } from './config.js';
+import { LANES, DRIVE_DIFFICULTY, RELAX, MASH, OFFICE, OFFICE_PROPS } from './config.js';
+import { fallPeakOffset } from './fruit.js';
 
 const FRAME = 1024;
 const HOP = 512;
@@ -238,7 +239,7 @@ export function buildDriveChart(analysis, difficultyKey) {
 }
 
 /**
- * Office Rage: офисный реквизит вылетает по дугам под бит.
+ * Office Rage: предметы падают сверху под бит.
  */
 export function buildFruitChart(analysis, difficultyKey) {
   const diff = DRIVE_DIFFICULTY[difficultyKey] ?? DRIVE_DIFFICULTY.medium;
@@ -248,11 +249,15 @@ export function buildFruitChart(analysis, difficultyKey) {
   let candidates = quantize(analysis, 1);
   if (candidates.length < 6) candidates = fallbackGrid(duration, beatInterval);
 
-  const minGap = Math.max(beatInterval * 0.55, (1 / diff.nps) * 0.65);
+  const minGap = Math.max(beatInterval * 0.6, (1 / diff.nps) * 0.7);
   const picked = thinByDensity(candidates, diff.nps, duration, minGap);
 
   const strengths = picked.map((n) => n.strength).sort((a, b) => b - a);
   const strongCut = strengths[Math.floor(strengths.length * 0.2)] ?? 0.65;
+
+  const gravity = diff.fallGravity ?? OFFICE.gravity;
+  const fallVy = diff.fallVy ?? OFFICE.fallVy;
+  const sizeScale = diff.sizeScale ?? 1;
 
   const notes = [];
   const canBomb = diff.types.includes('avoid') || diff.bombMode === 'help';
@@ -261,31 +266,32 @@ export function buildFruitChart(analysis, difficultyKey) {
 
   const pickDir = () => {
     const roll = random();
-    if (roll < 0.28) return 'left';
-    if (roll < 0.56) return 'right';
-    if (roll < 0.78) return 'up';
-    return 'down';
+    if (roll < 0.38) return 'left';
+    if (roll < 0.76) return 'right';
+    if (roll < 0.92) return 'down';
+    return 'up';
   };
 
   for (let i = 0; i < picked.length; i++) {
     const current = picked[i];
     if (current.skip) continue;
 
-    const spawnX = 0.1 + random() * 0.8;
-    const velX = (0.5 - spawnX) * (0.5 + random() * 0.45);
-    const velY = -(OFFICE.launchVy.min + random() * (OFFICE.launchVy.max - OFFICE.launchVy.min));
-    const peakOffset = -velY / OFFICE.gravity;
+    const spawnX = 0.08 + random() * 0.84;
+    const spawnY = OFFICE.spawnYTop.min + random() * (OFFICE.spawnYTop.max - OFFICE.spawnYTop.min);
+    const velX = (random() - 0.5) * OFFICE.driftX;
+    const velY = fallVy.min + random() * (fallVy.max - fallVy.min);
+    const peakOffset = fallPeakOffset(spawnY, velY, gravity);
 
     let type = 'fruit';
-    let fruitKind = Math.floor(random() * 4);
+    let fruitKind = Math.floor(random() * OFFICE_PROPS.length);
 
-    if (canBomb && bombCooldown <= 0 && random() < (diff.bombMode === 'help' ? 0.22 : 0.13)) {
+    if (canBomb && bombCooldown <= 0 && random() < (diff.bombMode === 'help' ? 0.2 : 0.11)) {
       type = 'avoid';
-      fruitKind = 4;
-      bombCooldown = diff.bombMode === 'help' ? 7 + Math.floor(random() * 4) : 12 + Math.floor(random() * 5);
-    } else if (canBonus && current.strength >= strongCut && random() < 0.18) {
+      fruitKind = 0;
+      bombCooldown = diff.bombMode === 'help' ? 7 + Math.floor(random() * 4) : 13 + Math.floor(random() * 5);
+    } else if (canBonus && current.strength >= strongCut && random() < 0.16) {
       type = 'golden';
-      fruitKind = 5;
+      fruitKind = 0;
     } else {
       bombCooldown--;
     }
@@ -294,10 +300,12 @@ export function buildFruitChart(analysis, difficultyKey) {
       time: current.time,
       peakTime: current.time + peakOffset,
       x: spawnX,
-      spawnY: OFFICE.spawnY,
+      spawnY,
       velX,
       velY,
-      spin: (random() - 0.5) * 10,
+      gravity,
+      sizeScale,
+      spin: (random() - 0.5) * 1.15,
       fruitKind,
       type,
       lane: 0,

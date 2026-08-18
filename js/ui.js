@@ -34,6 +34,7 @@ export class Ui {
       modeList: $('#mode-list'),
       difficultyRow: $('#difficulty-row'),
       difficultyList: $('#difficulty-list'),
+      diffHint: $('#diff-hint'),
       trackCard: $('#track-card'),
       trackCardTitle: $('#track-card-title'),
       trackCardMeta: $('#track-card-meta'),
@@ -159,7 +160,9 @@ export class Ui {
     this.el.modeList.innerHTML = modeHtml;
 
     const diffHtml = Object.keys(DRIVE_DIFFICULTY).map((key) => `
-      <button type="button" class="chip" data-difficulty="${key}">${t(`diff.${key}`)}</button>
+      <button type="button" class="chip" data-difficulty="${key}">
+        <span class="diff-dot" aria-hidden="true"></span>${t(`diff.${key}`)}
+      </button>
     `).join('');
     this.el.difficultyList.innerHTML = diffHtml;
 
@@ -448,6 +451,9 @@ export class Ui {
     }
 
     this.el.difficultyRow.classList.toggle('hidden', state.mode !== 'drive');
+    if (this.el.diffHint) {
+      this.el.diffHint.textContent = state.mode === 'drive' ? t(`diff.${state.difficulty}.hint`) : '';
+    }
     this.el.offsetInput.value = String(state.offsetMs);
     this.el.offsetValue.textContent = this._offsetLabel(state.offsetMs);
     this.el.langSelect.value = languagePreference();
@@ -651,9 +657,10 @@ export class Ui {
 
   // ── HUD ──────────────────────────────────────────────────────────────────
 
-  prepareHud(modeId) {
+  prepareHud(modeId, difficulty) {
     const mode = MODES[modeId];
     this._modeId = modeId;
+    this._difficulty = difficulty;
     this.el.barLabel.textContent = mode.barLabel;
     this.el.modeBadge.textContent = mode.title;
     this.el.modeBadge.style.color = mode.accent;
@@ -667,7 +674,7 @@ export class Ui {
     this._lastShield = null;
     this._lastShieldVisible = null;
     this._lastBarLabel = '';
-    this.showCoach(modeId);
+    this.showCoach(modeId, difficulty);
     this.hidePause();
   }
 
@@ -684,23 +691,26 @@ export class Ui {
     if (this.el.pauseBtn) this.el.pauseBtn.classList.remove('hidden');
   }
 
-  showCoach(modeId) {
+  showCoach(modeId, difficulty) {
     if (!this.el.coach) return;
-    const seen = (peekLocal('ux_coach_v1') || '').split(',').filter(Boolean);
-    if (seen.includes(modeId)) {
+    const seenKey = difficulty ? `${modeId}:${difficulty}` : modeId;
+    const seen = (peekLocal('ux_coach_v2') || '').split(',').filter(Boolean);
+    if (seen.includes(seenKey)) {
       this.el.coach.classList.add('hidden');
       return;
     }
-    this.el.coach.textContent = t(`coach.${modeId}`);
+    const key = modeId === 'drive' && difficulty ? `coach.drive.${difficulty}` : `coach.${modeId}`;
+    this.el.coach.textContent = t(key);
     this.el.coach.classList.remove('hidden');
   }
 
-  dismissCoach(modeId) {
+  dismissCoach(modeId, difficulty) {
     if (!this.el.coach || this.el.coach.classList.contains('hidden')) return;
     this.el.coach.classList.add('hidden');
-    const seen = new Set((peekLocal('ux_coach_v1') || '').split(',').filter(Boolean));
-    seen.add(modeId);
-    storage.set('ux_coach_v1', [...seen].join(','));
+    const seenKey = difficulty ? `${modeId}:${difficulty}` : modeId;
+    const seen = new Set((peekLocal('ux_coach_v2') || '').split(',').filter(Boolean));
+    seen.add(seenKey);
+    storage.set('ux_coach_v2', [...seen].join(','));
   }
 
   /** Синхронизация с часами AudioContext в начале кадра. */

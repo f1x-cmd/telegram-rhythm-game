@@ -59,13 +59,15 @@ export const RAGE_MISS = 9;
 export const RAGE_FEVER_TIME = 14;
 export const DRIVE_SMASH_ZONE_Y = 0.52; // доля экрана — зона «бей куда угодно»
 
-/** Office Rage в DRIVE: офисные предметы по дугам, разрез свайпом. */
+/** Office Rage: предметы падают сверху, режутся свайпом по экрану. */
 export const OFFICE = {
-  spawnY: 1.07,
-  gravity: 2.35,
-  launchVy: { min: 1.12, max: 1.58 },
-  radius: 0.054,
-  goldenRadius: 0.07,
+  spawnYTop: { min: -0.12, max: -0.03 },
+  gravity: 1.05,
+  fallVy: { min: 0.2, max: 0.38 },
+  driftX: 0.26,
+  sliceTargetY: 0.52,
+  radius: 0.085,
+  goldenRadius: 0.104,
   sliceMinPx: 12,
   bladeLife: 0.42,
   helpRadius: 0.26,
@@ -76,15 +78,22 @@ export const OFFICE = {
 /** @deprecated alias */
 export const FRUIT = OFFICE;
 
-/** Офисный реквизит: документы, звонки, кружки… */
+/** Офисный реквизит: то, что хочется разрезать после рабочего дня. */
 export const OFFICE_PROPS = [
   { id: 0, color: '#F4F4EE', accent: '#5B7DB1', debris: '#D8D8CC', icon: 'doc' },
   { id: 1, color: '#2A2A2E', accent: '#6FE9FF', debris: '#888890', icon: 'phone' },
   { id: 2, color: '#C4A882', accent: '#FFE8CC', debris: '#E8D0A8', icon: 'mug' },
   { id: 3, color: '#FF5555', accent: '#FFD0D0', debris: '#FFAAAA', icon: 'call' },
-  { id: 4, color: '#2A2A2A', accent: '#FF4D2E', debris: '#AA8866', icon: 'bomb' },
-  { id: 5, color: '#FFD166', accent: '#FFF8DC', debris: '#FFF0A8', icon: 'bonus' },
+  { id: 4, color: '#3A3A42', accent: '#9AA3B5', debris: '#888890', icon: 'keyboard' },
+  { id: 5, color: '#E8E0C8', accent: '#C45A4A', debris: '#D8D0B8', icon: 'mail' },
+  { id: 6, color: '#4A5568', accent: '#7EC8E3', debris: '#8890A0', icon: 'laptop' },
+  { id: 7, color: '#C45A3A', accent: '#2A2A2A', debris: '#E09070', icon: 'stapler' },
+  { id: 8, color: '#3D8B6E', accent: '#C4A882', debris: '#7EC4A0', icon: 'cactus' },
+  { id: 9, color: '#2A2A32', accent: '#FF4D2E', debris: '#888890', icon: 'headset' },
 ];
+
+export const OFFICE_BOMB = { id: 20, color: '#1a1a1a', accent: '#FF4D2E', debris: '#AA8866', icon: 'bomb' };
+export const OFFICE_BONUS = { id: 21, color: '#FFD166', accent: '#FFF8DC', debris: '#FFF0A8', icon: 'bonus' };
 
 /** @deprecated */
 export const FRUIT_KINDS = OFFICE_PROPS;
@@ -110,22 +119,25 @@ export const CUSTOM_AUDIO_MAX_BYTES = 20 * 1024 * 1024;
 /** Настройки сложности режима DRIVE. Названия — в i18n (ключи diff.*). */
 export const DRIVE_DIFFICULTY = {
   easy: {
-    nps: 1.35, approach: 2.7, windowScale: 1.85,
+    nps: 1.25, approach: 2.7, windowScale: 1.85,
     chord: 1, types: ['office', 'bonus'], hpDrain: 0.45,
     laneSnap: true, holdLanePad: 0.5, smashZone: true, canFail: false,
     fruitNinja: true, bombMode: 'help', sliceDir: false,
+    fallGravity: 0.92, fallVy: { min: 0.22, max: 0.36 }, sizeScale: 1.18,
   },
   medium: {
-    nps: 1.9, approach: 2.25, windowScale: 1.55,
+    nps: 1.65, approach: 2.25, windowScale: 1.55,
     chord: 1, types: ['office', 'bonus', 'avoid'], hpDrain: 0.65,
     laneSnap: true, holdLanePad: 0.38, smashZone: true, canFail: false,
     fruitNinja: true, bombMode: 'dust', sliceDir: true,
+    fallGravity: 0.88, fallVy: { min: 0.2, max: 0.32 }, sizeScale: 1.22,
   },
   hard: {
-    nps: 2.8, approach: 1.85, windowScale: 1.2,
+    nps: 1.55, approach: 2.4, windowScale: 1.35,
     chord: 1, types: ['office', 'bonus', 'avoid'], hpDrain: 1.0,
     laneSnap: false, holdLanePad: 0.24, smashZone: true, canFail: true,
-    fruitNinja: true, bombMode: 'damage', sliceDir: false,
+    fruitNinja: true, bombMode: 'damage', sliceDir: true,
+    fallGravity: 0.58, fallVy: { min: 0.11, max: 0.2 }, sizeScale: 1.42,
   },
 };
 

@@ -12,6 +12,7 @@ import {
 import {
   officePosition, officeRadius, officeProp, segmentHitsCircle, bladeAngle, sliceMatchesDir,
 } from './fruit.js';
+import { drawOfficeIcon, drawOfficeBomb, drawSliceHint } from './office-art.js';
 import { haptic } from './telegram.js';
 import { t } from './i18n.js';
 import { shieldConfig } from './liveops.js';
@@ -36,6 +37,7 @@ export class DriveMode {
     this.fruitMode = false;
     this.dust = 0;
     this.helpClears = 0;
+    this.lastWrongAt = 0;
     this.score = 0;
     this.combo = 0;
     this.maxCombo = 0;
@@ -96,9 +98,11 @@ export class DriveMode {
       note.holdFilled = 0;
       note.tickCount = 0;
       note.fade = 0;
-      note.spawnY = source.spawnY ?? OFFICE.spawnY;
+      note.spawnY = source.spawnY ?? OFFICE.spawnYTop.min;
       note.velX = source.velX ?? 0;
-      note.velY = source.velY ?? -1.2;
+      note.velY = source.velY ?? OFFICE.fallVy.min;
+      note.gravity = source.gravity ?? OFFICE.gravity;
+      note.sizeScale = source.sizeScale ?? this.diff.sizeScale ?? 1;
       note.spin = source.spin ?? 0;
       note.fruitKind = source.fruitKind ?? 0;
       note.peakTime = source.peakTime ?? source.time;
@@ -115,6 +119,7 @@ export class DriveMode {
     this.slices = 0;
     this.dust = 0;
     this.helpClears = 0;
+    this.lastWrongAt = 0;
     this.score = 0;
     this.combo = 0;
     this.maxCombo = 0;
@@ -786,6 +791,12 @@ export class DriveMode {
       vignette.addColorStop(1, 'rgba(12, 14, 20, 0.32)');
       ctx.fillStyle = vignette;
       ctx.fillRect(0, 0, w, h);
+
+      const topLight = ctx.createLinearGradient(0, 0, 0, h * 0.22);
+      topLight.addColorStop(0, 'rgba(232, 244, 255, 0.1)');
+      topLight.addColorStop(1, 'rgba(232, 244, 255, 0)');
+      ctx.fillStyle = topLight;
+      ctx.fillRect(0, 0, w, h * 0.22);
     } else if (this.diff.smashZone) {
       const zoneY = h * DRIVE_SMASH_ZONE_Y;
       const zoneGrad = ctx.createLinearGradient(0, zoneY, 0, h);
@@ -1088,7 +1099,9 @@ export class DriveMode {
     slot.prevY = slot.y;
     this.game.fx.pushRibbon(slot.x, slot.y, OFFICE.bladeLife);
     this.game.audio.click(0.14);
-    this._bladeSlice(slot.x, slot.y, slot.x + 3, slot.y + 2, now);
+    if (!this.diff.sliceDir) {
+      this._bladeSlice(slot.x, slot.y, slot.x + 3, slot.y + 2, now);
+    }
   }
 
   _fruitOnMove(slot) {
@@ -1120,6 +1133,8 @@ export class DriveMode {
         hits.push({ note, pos, bomb: true });
       } else if (sliceMatchesDir(note, x1, y1, x2, y2, this.diff.sliceDir)) {
         hits.push({ note, pos, bomb: false });
+      } else {
+        this._wrongSlice(note, pos, now);
       }
     }
 
@@ -1130,6 +1145,15 @@ export class DriveMode {
         this._sliceProp(hit.note, hit.pos.x, hit.pos.y, angle, now);
       }
     }
+  }
+
+  _wrongSlice(note, pos, now) {
+    if (now - this.lastWrongAt < 0.22) return;
+    this.lastWrongAt = now;
+    const { fx, hud } = this.game;
+    fx.ring(pos.x, pos.y, '#FFD166', officeRadius(note, this.game.width) * 0.4, officeRadius(note, this.game.width) * 1.35, 0.28, 3);
+    hud.showJudgment(t('judgment.wrong'), 'good');
+    haptic('warning');
   }
 
   _sliceProp(note, x, y, angle, now, options = {}) {
@@ -1293,9 +1317,9 @@ export class DriveMode {
       const pos = officePosition(note, now, audio, width, height);
       if (!pos) continue;
 
-      const offScreen = pos.y > height * 1.2
-        || pos.x < -width * 0.25
-        || pos.x > width * 1.25;
+      const offScreen = pos.y > height * 1.18
+        || pos.x < -width * 0.3
+        || pos.x > width * 1.3;
 
       if (!offScreen || pos.elapsed < 0.35) continue;
 
@@ -1372,7 +1396,8 @@ export class DriveMode {
       let alpha = 1;
       if (note.judged) alpha = Math.max(0, 1 - note.fade);
       if (alpha <= 0.02) continue;
-      if (pos.y < -r * 2 && !note.judged) continue;
+      if (pos.y < -r * 3 && !note.judged) continue;
+      if (pos.y > h + r * 2 && note.judged) continue;
 
       ctx.globalAlpha = alpha;
 
@@ -1381,148 +1406,36 @@ export class DriveMode {
       } else if (note.type === 'avoid') {
         this._drawOfficeBomb(ctx, pos.x, pos.y, r, pos.rotation, fx, alpha);
       } else {
-        this._drawOfficeProp(ctx, pos.x, pos.y, r, prop, pos.rotation, fx, alpha, note);
+        this._drawOfficeProp(ctx, pos.x, pos.y, r, prop, pos.rotation, fx, alpha, note, now);
       }
 
       ctx.globalAlpha = 1;
     }
   }
 
-  _drawOfficeProp(ctx, x, y, r, prop, rotation, fx, alpha, note) {
+  _drawOfficeProp(ctx, x, y, r, prop, rotation, fx, alpha, note, now) {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(rotation);
-
     fx.drawGlow(ctx, 0, 0, r * 2.2, prop.accent, alpha * 0.4);
-
-    switch (prop.icon) {
-      case 'doc':
-        ctx.fillStyle = prop.color;
-        this._roundRect(ctx, -r * 0.55, -r * 0.7, r * 1.1, r * 1.4, r * 0.08);
-        ctx.fill();
-        ctx.fillStyle = prop.accent;
-        for (let i = 0; i < 4; i++) {
-          ctx.fillRect(-r * 0.38, -r * 0.45 + i * r * 0.22, r * 0.76, r * 0.07);
-        }
-        break;
-      case 'phone':
-        ctx.fillStyle = prop.color;
-        this._roundRect(ctx, -r * 0.38, -r * 0.72, r * 0.76, r * 1.44, r * 0.12);
-        ctx.fill();
-        ctx.fillStyle = prop.accent;
-        this._roundRect(ctx, -r * 0.28, -r * 0.55, r * 0.56, r * 0.95, r * 0.06);
-        ctx.fill();
-        break;
-      case 'mug':
-        ctx.fillStyle = prop.color;
-        ctx.beginPath();
-        ctx.moveTo(-r * 0.45, r * 0.5);
-        ctx.lineTo(-r * 0.35, -r * 0.35);
-        ctx.lineTo(r * 0.35, -r * 0.35);
-        ctx.lineTo(r * 0.45, r * 0.5);
-        ctx.closePath();
-        ctx.fill();
-        ctx.strokeStyle = prop.accent;
-        ctx.lineWidth = r * 0.12;
-        ctx.beginPath();
-        ctx.arc(r * 0.48, 0, r * 0.28, -Math.PI / 2, Math.PI / 2);
-        ctx.stroke();
-        ctx.fillStyle = '#FFE8CC';
-        ctx.fillRect(-r * 0.3, -r * 0.5, r * 0.6, r * 0.18);
-        break;
-      case 'call':
-        ctx.fillStyle = prop.color;
-        ctx.beginPath();
-        ctx.arc(0, 0, r * 0.55, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = prop.accent;
-        ctx.lineWidth = 2;
-        for (let i = 1; i <= 3; i++) {
-          ctx.beginPath();
-          ctx.arc(0, 0, r * (0.35 + i * 0.18), -Math.PI * 0.35, Math.PI * 0.35);
-          ctx.stroke();
-        }
-        break;
-      case 'bonus':
-        ctx.fillStyle = prop.color;
-        this._roundRect(ctx, -r * 0.65, -r * 0.42, r * 1.3, r * 0.84, r * 0.08);
-        ctx.fill();
-        ctx.fillStyle = '#FFF';
-        ctx.font = `800 ${Math.round(r * 0.9)}px sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('₽', 0, r * 0.02);
-        ctx.textAlign = 'start';
-        ctx.textBaseline = 'alphabetic';
-        break;
-      default:
-        ctx.fillStyle = prop.color;
-        ctx.beginPath();
-        ctx.arc(0, 0, r, 0, Math.PI * 2);
-        ctx.fill();
-    }
+    drawOfficeIcon(ctx, r, prop);
+    ctx.restore();
 
     if (this.diff.sliceDir && note.dir && !note.judged) {
-      this._drawSliceArrow(ctx, r, note.dir);
+      drawSliceHint(ctx, x, y, r, note.dir, now);
     }
-
-    ctx.restore();
-  }
-
-  _drawSliceArrow(ctx, r, dir) {
-    const len = r * 0.85;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.92)';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    if (dir === 'left') {
-      ctx.moveTo(len * 0.3, 0); ctx.lineTo(-len * 0.4, 0);
-      ctx.moveTo(-len * 0.15, -len * 0.22); ctx.lineTo(-len * 0.4, 0); ctx.lineTo(-len * 0.15, len * 0.22);
-    } else if (dir === 'right') {
-      ctx.moveTo(-len * 0.3, 0); ctx.lineTo(len * 0.4, 0);
-      ctx.moveTo(len * 0.15, -len * 0.22); ctx.lineTo(len * 0.4, 0); ctx.lineTo(len * 0.15, len * 0.22);
-    } else if (dir === 'up') {
-      ctx.moveTo(0, len * 0.3); ctx.lineTo(0, -len * 0.4);
-      ctx.moveTo(-len * 0.22, -len * 0.15); ctx.lineTo(0, -len * 0.4); ctx.lineTo(len * 0.22, -len * 0.15);
-    } else {
-      ctx.moveTo(0, -len * 0.3); ctx.lineTo(0, len * 0.4);
-      ctx.moveTo(-len * 0.22, len * 0.15); ctx.lineTo(0, len * 0.4); ctx.lineTo(len * 0.22, len * 0.15);
-    }
-    ctx.stroke();
   }
 
   _drawOfficeBomb(ctx, x, y, r, rotation, fx, alpha) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(rotation);
-
     const help = this.diff.bombMode === 'help';
     const dust = this.diff.bombMode === 'dust';
     const glow = help ? '#7CFC4A' : dust ? '#AA9988' : COLORS.avoid;
-    fx.drawGlow(ctx, 0, 0, r * 2.2, glow, alpha * 0.55);
 
-    ctx.fillStyle = help ? '#2A4A2A' : dust ? '#4A4540' : '#1a1a1a';
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = help ? '#7CFC4A' : dust ? '#D8C8B0' : '#FF3300';
-    ctx.font = `800 ${Math.round(r * 0.75)}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(help ? '!' : dust ? '~' : '×', 0, r * 0.05);
-    ctx.textAlign = 'start';
-    ctx.textBaseline = 'alphabetic';
-
-    if (help) {
-      ctx.strokeStyle = '#7CFC4A';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(0, 0, r * 1.15, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rotation * 0.35);
+    fx.drawGlow(ctx, 0, 0, r * 2.4, glow, alpha * 0.55);
+    drawOfficeBomb(ctx, r, this.diff.bombMode);
     ctx.restore();
   }
 

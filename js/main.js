@@ -308,7 +308,7 @@ class Game {
       if (event.target.closest('button')) return;
       event.preventDefault();
       await this.audio.init();
-      this.ui.dismissCoach(this.modeId);
+      this.ui.dismissCoach(this.modeId, this.difficulty);
       try { field.setPointerCapture(event.pointerId); } catch (_) { /* не критично */ }
       const { x, y } = this._localPoint(event);
       const slot = this.pointers.down(event.pointerId, x, y, this.audio.time);
@@ -388,7 +388,7 @@ class Game {
 
     try {
       this.ui.showScreen('game');
-      this.ui.prepareHud(this.modeId);
+      this.ui.prepareHud(this.modeId, this.difficulty);
       this.ui.setLoading(t('load.track'));
       await this._nextFrame();
 
