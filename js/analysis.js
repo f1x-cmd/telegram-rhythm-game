@@ -3,7 +3,7 @@
  * генерация карт нот для режимов DRIVE и RELAX.
  */
 
-import { LANES, DRIVE_DIFFICULTY, RELAX, MASH } from './config.js';
+import { LANES, DRIVE_DIFFICULTY, RELAX, MASH, OFFICE } from './config.js';
 
 const FRAME = 1024;
 const HOP = 512;
@@ -232,6 +232,90 @@ function fallbackGrid(duration, interval) {
  * @returns {{notes: Array, beatInterval: number, bpm: number, beatPhase: number}}
  */
 export function buildDriveChart(analysis, difficultyKey) {
+  const diff = DRIVE_DIFFICULTY[difficultyKey] ?? DRIVE_DIFFICULTY.medium;
+  if (diff.fruitNinja) return buildFruitChart(analysis, difficultyKey);
+  return buildLaneChart(analysis, difficultyKey);
+}
+
+/**
+ * Office Rage: офисный реквизит вылетает по дугам под бит.
+ */
+export function buildFruitChart(analysis, difficultyKey) {
+  const diff = DRIVE_DIFFICULTY[difficultyKey] ?? DRIVE_DIFFICULTY.medium;
+  const { beatInterval, duration } = analysis;
+  const random = mulberry32(Math.round(duration * 131) + 919);
+
+  let candidates = quantize(analysis, 1);
+  if (candidates.length < 6) candidates = fallbackGrid(duration, beatInterval);
+
+  const minGap = Math.max(beatInterval * 0.55, (1 / diff.nps) * 0.65);
+  const picked = thinByDensity(candidates, diff.nps, duration, minGap);
+
+  const strengths = picked.map((n) => n.strength).sort((a, b) => b - a);
+  const strongCut = strengths[Math.floor(strengths.length * 0.2)] ?? 0.65;
+
+  const notes = [];
+  const canBomb = diff.types.includes('avoid') || diff.bombMode === 'help';
+  const canBonus = diff.types.includes('bonus') || diff.types.includes('office');
+  let bombCooldown = diff.bombMode === 'help' ? 6 : 10;
+
+  const pickDir = () => {
+    const roll = random();
+    if (roll < 0.28) return 'left';
+    if (roll < 0.56) return 'right';
+    if (roll < 0.78) return 'up';
+    return 'down';
+  };
+
+  for (let i = 0; i < picked.length; i++) {
+    const current = picked[i];
+    if (current.skip) continue;
+
+    const spawnX = 0.1 + random() * 0.8;
+    const velX = (0.5 - spawnX) * (0.5 + random() * 0.45);
+    const velY = -(OFFICE.launchVy.min + random() * (OFFICE.launchVy.max - OFFICE.launchVy.min));
+    const peakOffset = -velY / OFFICE.gravity;
+
+    let type = 'fruit';
+    let fruitKind = Math.floor(random() * 4);
+
+    if (canBomb && bombCooldown <= 0 && random() < (diff.bombMode === 'help' ? 0.22 : 0.13)) {
+      type = 'avoid';
+      fruitKind = 4;
+      bombCooldown = diff.bombMode === 'help' ? 7 + Math.floor(random() * 4) : 12 + Math.floor(random() * 5);
+    } else if (canBonus && current.strength >= strongCut && random() < 0.18) {
+      type = 'golden';
+      fruitKind = 5;
+    } else {
+      bombCooldown--;
+    }
+
+    notes.push({
+      time: current.time,
+      peakTime: current.time + peakOffset,
+      x: spawnX,
+      spawnY: OFFICE.spawnY,
+      velX,
+      velY,
+      spin: (random() - 0.5) * 10,
+      fruitKind,
+      type,
+      lane: 0,
+      duration: 0,
+      dir: diff.sliceDir && type !== 'avoid' ? pickDir() : null,
+      taps: 0,
+      strength: current.strength,
+    });
+  }
+
+  notes.sort((a, b) => a.time - b.time);
+  return { notes, beatInterval, bpm: analysis.bpm, beatPhase: analysis.beatPhase, fruitNinja: true };
+}
+
+/**
+ * Классические 4 дорожки (legacy, если fruitNinja выключен).
+ */
+function buildLaneChart(analysis, difficultyKey) {
   const diff = DRIVE_DIFFICULTY[difficultyKey] ?? DRIVE_DIFFICULTY.medium;
   const { beatInterval, duration } = analysis;
   const random = mulberry32(Math.round(duration * 1000) + Math.round(beatInterval * 10000));

@@ -15,6 +15,8 @@ function createSlot() {
     moveX: 0, moveY: 0,  // накопленное смещение
     swipeUsed: false,
     lane: -1,
+    prevX: 0,
+    prevY: 0,
   };
 }
 
@@ -63,12 +65,16 @@ export class PointerTracker {
     slot.moveY = 0;
     slot.swipeUsed = false;
     slot.lane = -1;
+    slot.prevX = x;
+    slot.prevY = y;
     return slot;
   }
 
   move(id, x, y) {
     const slot = this.find(id);
     if (!slot) return null;
+    slot.prevX = slot.x;
+    slot.prevY = slot.y;
     slot.moveX = x - slot.startX;
     slot.moveY = y - slot.startY;
     slot.x = x;

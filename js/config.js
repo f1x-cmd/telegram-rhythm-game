@@ -59,6 +59,36 @@ export const RAGE_MISS = 9;
 export const RAGE_FEVER_TIME = 14;
 export const DRIVE_SMASH_ZONE_Y = 0.52; // доля экрана — зона «бей куда угодно»
 
+/** Office Rage в DRIVE: офисные предметы по дугам, разрез свайпом. */
+export const OFFICE = {
+  spawnY: 1.07,
+  gravity: 2.35,
+  launchVy: { min: 1.12, max: 1.58 },
+  radius: 0.054,
+  goldenRadius: 0.07,
+  sliceMinPx: 12,
+  bladeLife: 0.42,
+  helpRadius: 0.26,
+  dustAmount: 0.52,
+  dustDecay: 0.32,
+};
+
+/** @deprecated alias */
+export const FRUIT = OFFICE;
+
+/** Офисный реквизит: документы, звонки, кружки… */
+export const OFFICE_PROPS = [
+  { id: 0, color: '#F4F4EE', accent: '#5B7DB1', debris: '#D8D8CC', icon: 'doc' },
+  { id: 1, color: '#2A2A2E', accent: '#6FE9FF', debris: '#888890', icon: 'phone' },
+  { id: 2, color: '#C4A882', accent: '#FFE8CC', debris: '#E8D0A8', icon: 'mug' },
+  { id: 3, color: '#FF5555', accent: '#FFD0D0', debris: '#FFAAAA', icon: 'call' },
+  { id: 4, color: '#2A2A2A', accent: '#FF4D2E', debris: '#AA8866', icon: 'bomb' },
+  { id: 5, color: '#FFD166', accent: '#FFF8DC', debris: '#FFF0A8', icon: 'bonus' },
+];
+
+/** @deprecated */
+export const FRUIT_KINDS = OFFICE_PROPS;
+
 /** Нота-«долбилка» в DRIVE: серия быстрых тапов по дорожке. */
 export const MASH = { taps: 5, window: 0.75 };
 
@@ -80,19 +110,22 @@ export const CUSTOM_AUDIO_MAX_BYTES = 20 * 1024 * 1024;
 /** Настройки сложности режима DRIVE. Названия — в i18n (ключи diff.*). */
 export const DRIVE_DIFFICULTY = {
   easy: {
-    nps: 1.5, approach: 2.7, windowScale: 1.85,
-    chord: 1, types: ['tap'], hpDrain: 0.45,
+    nps: 1.35, approach: 2.7, windowScale: 1.85,
+    chord: 1, types: ['office', 'bonus'], hpDrain: 0.45,
     laneSnap: true, holdLanePad: 0.5, smashZone: true, canFail: false,
+    fruitNinja: true, bombMode: 'help', sliceDir: false,
   },
   medium: {
-    nps: 2.2, approach: 2.25, windowScale: 1.55,
-    chord: 1, types: ['tap', 'hold'], hpDrain: 0.65,
+    nps: 1.9, approach: 2.25, windowScale: 1.55,
+    chord: 1, types: ['office', 'bonus', 'avoid'], hpDrain: 0.65,
     laneSnap: true, holdLanePad: 0.38, smashZone: true, canFail: false,
+    fruitNinja: true, bombMode: 'dust', sliceDir: true,
   },
   hard: {
-    nps: 3.8, approach: 1.85, windowScale: 1.2,
-    chord: 2, types: ['tap', 'hold', 'swipe', 'mash'], hpDrain: 1.0,
-    laneSnap: false, holdLanePad: 0.24, smashZone: false, canFail: true,
+    nps: 2.8, approach: 1.85, windowScale: 1.2,
+    chord: 1, types: ['office', 'bonus', 'avoid'], hpDrain: 1.0,
+    laneSnap: false, holdLanePad: 0.24, smashZone: true, canFail: true,
+    fruitNinja: true, bombMode: 'damage', sliceDir: false,
   },
 };
 

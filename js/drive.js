@@ -1,15 +1,17 @@
 /**
- * DRIVE — катарсис в дороге.
- * Easy/Medium: зона SMASH, шкала ярости и FEVER — без проигрыша.
- * Hard: классические 4 дорожки и HP.
+ * DRIVE — Office Rage после работы.
+ * Режь документы, телефоны, звонки и кружки. Бомбы зависят от сложности.
  */
 
 import {
   LANES, ZONE, TIMING, JUDGE, JUDGE_KEYS, COLORS, SCORE_BASE, MAX_HP,
   AVOID_PENALTY, SWIPE_MIN_PX, SWIPE_WINDOW,
   HOLD_TICK, COMBO_SHAKE, DRIVE_DIFFICULTY, DRIVE_ASSIST_TIME, DRIVE_MISS_HP,
-  RAGE_GAIN, RAGE_MISS, RAGE_FEVER_TIME, DRIVE_SMASH_ZONE_Y, comboMultiplier,
+  RAGE_GAIN, RAGE_MISS, RAGE_FEVER_TIME, DRIVE_SMASH_ZONE_Y, OFFICE, comboMultiplier,
 } from './config.js';
+import {
+  officePosition, officeRadius, officeProp, segmentHitsCircle, bladeAngle, sliceMatchesDir,
+} from './fruit.js';
 import { haptic } from './telegram.js';
 import { t } from './i18n.js';
 import { shieldConfig } from './liveops.js';
@@ -30,6 +32,10 @@ export class DriveMode {
     this.feverEndsAt = 0;
     this.feverCount = 0;
     this.smashHits = 0;
+    this.slices = 0;
+    this.fruitMode = false;
+    this.dust = 0;
+    this.helpClears = 0;
     this.score = 0;
     this.combo = 0;
     this.maxCombo = 0;
@@ -61,6 +67,7 @@ export class DriveMode {
     notePool.reset();
 
     this.diff = DRIVE_DIFFICULTY[difficultyKey] ?? DRIVE_DIFFICULTY.medium;
+    this.fruitMode = Boolean(this.diff.fruitNinja);
     this.windowScale = this.diff.windowScale;
     this.approach = this.diff.approach;
     this.beatInterval = chart.beatInterval || 0.5;
@@ -72,8 +79,8 @@ export class DriveMode {
       const note = notePool.acquire();
       note.active = true;
       note.type = source.type;
-      note.lane = source.lane;
-      note.x = 0;
+      note.lane = source.lane ?? 0;
+      note.x = source.x ?? 0.5;
       note.time = source.time;
       note.duration = source.duration || 0;
       note.dir = source.dir;
@@ -89,6 +96,13 @@ export class DriveMode {
       note.holdFilled = 0;
       note.tickCount = 0;
       note.fade = 0;
+      note.spawnY = source.spawnY ?? OFFICE.spawnY;
+      note.velX = source.velX ?? 0;
+      note.velY = source.velY ?? -1.2;
+      note.spin = source.spin ?? 0;
+      note.fruitKind = source.fruitKind ?? 0;
+      note.peakTime = source.peakTime ?? source.time;
+      note.sliceAngle = 0;
       if (source.type !== 'avoid') this.total++;
     }
 
@@ -98,6 +112,9 @@ export class DriveMode {
     this.feverEndsAt = 0;
     this.feverCount = 0;
     this.smashHits = 0;
+    this.slices = 0;
+    this.dust = 0;
+    this.helpClears = 0;
     this.score = 0;
     this.combo = 0;
     this.maxCombo = 0;
@@ -151,6 +168,10 @@ export class DriveMode {
   // ── Ввод ─────────────────────────────────────────────────────────────────
 
   onDown(slot) {
+    if (this.fruitMode) {
+      this._fruitOnDown(slot);
+      return;
+    }
     const now = this.game.audio.time;
     const { width, height, fx, audio } = this.game;
     const missWindow = TIMING.GOOD * this._windowScale(this.game.audio.songTime());
@@ -242,6 +263,10 @@ export class DriveMode {
   }
 
   onMove(slot) {
+    if (this.fruitMode) {
+      this._fruitOnMove(slot);
+      return;
+    }
     if (slot.swipeUsed) return;
     const dx = slot.moveX;
     const dy = slot.moveY;
@@ -282,6 +307,10 @@ export class DriveMode {
   // ── Логика ───────────────────────────────────────────────────────────────
 
   update(now, songTime, dt) {
+    if (this.fruitMode) {
+      this._fruitUpdate(now, songTime, dt);
+      return;
+    }
     const { audio, notePool, pointers } = this.game;
     const missWindow = TIMING.GOOD * this._windowScale(songTime);
     const holdPad = this.diff.holdLanePad ?? 0.3;
@@ -622,11 +651,11 @@ export class DriveMode {
       this.hp = Math.min(MAX_HP, this.hp + 0.3);
     }
 
-    // Визуальный отклик у линии судейства
+    // Визуальный отклик
     const laneWidth = width / LANES;
-    const x = note.lane * laneWidth + laneWidth / 2;
-    const y = ZONE.hitLine * height;
-    this.laneHit[note.lane] = now + 0.22;
+    const x = options.hitX ?? (note.lane * laneWidth + laneWidth / 2);
+    const y = options.hitY ?? (ZONE.hitLine * height);
+    if (!options.slice) this.laneHit[note.lane] = now + 0.22;
 
     if (key === 'PERFECT_PLUS' || key === 'PERFECT') {
       fx.burst(x, y, 15 + Math.floor(Math.random() * 11), judgment.color, {
@@ -648,7 +677,9 @@ export class DriveMode {
       haptic(judgment.haptic);
     }
 
-    hud.showJudgment(judgment.label, key.toLowerCase().replace('_', '-'));
+    if (!options.skipHud) {
+      hud.showJudgment(judgment.label, key.toLowerCase().replace('_', '-'));
+    }
   }
 
   _completeHold(note, now) {
@@ -706,6 +737,10 @@ export class DriveMode {
   // ── Отрисовка ────────────────────────────────────────────────────────────
 
   render(ctx, now, songTime) {
+    if (this.fruitMode) {
+      this._fruitRender(ctx, now, songTime);
+      return;
+    }
     const { width: w, height: h, fx, audio } = this.game;
     const bands = audio.bands;
     const hitY = ZONE.hitLine * h;
@@ -745,7 +780,13 @@ export class DriveMode {
     const accent = this.feverActive ? COLORS.fever : COLORS.rage;
     this.game.fx.drawGlow(ctx, w / 2, ZONE.hitLine * h, w * (0.5 + bands.bass * 0.5), accent, 0.1 + bands.bass * 0.22);
 
-    if (this.diff.smashZone) {
+    if (this.fruitMode) {
+      const vignette = ctx.createRadialGradient(w / 2, h * 0.42, w * 0.15, w / 2, h * 0.5, w * 0.9);
+      vignette.addColorStop(0, 'rgba(91, 125, 177, 0.07)');
+      vignette.addColorStop(1, 'rgba(12, 14, 20, 0.32)');
+      ctx.fillStyle = vignette;
+      ctx.fillRect(0, 0, w, h);
+    } else if (this.diff.smashZone) {
       const zoneY = h * DRIVE_SMASH_ZONE_Y;
       const zoneGrad = ctx.createLinearGradient(0, zoneY, 0, h);
       zoneGrad.addColorStop(0, 'rgba(255, 77, 46, 0)');
@@ -1039,6 +1080,475 @@ export class DriveMode {
     ctx.restore();
   }
 
+  // ── Office Rage ───────────────────────────────────────────────────────────
+
+  _fruitOnDown(slot) {
+    const now = this.game.audio.time;
+    slot.prevX = slot.x;
+    slot.prevY = slot.y;
+    this.game.fx.pushRibbon(slot.x, slot.y, OFFICE.bladeLife);
+    this.game.audio.click(0.14);
+    this._bladeSlice(slot.x, slot.y, slot.x + 3, slot.y + 2, now);
+  }
+
+  _fruitOnMove(slot) {
+    const dx = slot.x - slot.prevX;
+    const dy = slot.y - slot.prevY;
+    if (Math.hypot(dx, dy) < OFFICE.sliceMinPx) return;
+
+    const now = this.game.audio.time;
+    this.game.fx.pushRibbon(slot.x, slot.y, OFFICE.bladeLife);
+    this._bladeSlice(slot.prevX, slot.prevY, slot.x, slot.y, now);
+  }
+
+  _bladeSlice(x1, y1, x2, y2, now) {
+    const { notePool, audio, width, height } = this.game;
+    const angle = bladeAngle(x1, y1, x2, y2);
+    const hits = [];
+
+    for (let i = 0; i < notePool.size; i++) {
+      const note = notePool.items[i];
+      if (!note.active || note.judged) continue;
+
+      const pos = officePosition(note, now, audio, width, height);
+      if (!pos) continue;
+
+      const r = officeRadius(note, width);
+      if (!segmentHitsCircle(x1, y1, x2, y2, pos.x, pos.y, r)) continue;
+
+      if (note.type === 'avoid') {
+        hits.push({ note, pos, bomb: true });
+      } else if (sliceMatchesDir(note, x1, y1, x2, y2, this.diff.sliceDir)) {
+        hits.push({ note, pos, bomb: false });
+      }
+    }
+
+    for (const hit of hits) {
+      if (hit.bomb) {
+        this._sliceBomb(hit.note, hit.pos.x, hit.pos.y, now);
+      } else {
+        this._sliceProp(hit.note, hit.pos.x, hit.pos.y, angle, now);
+      }
+    }
+  }
+
+  _sliceProp(note, x, y, angle, now, options = {}) {
+    const { fx, hud } = this.game;
+    note.judged = true;
+    note.hit = true;
+    note.fade = 0;
+    note.sliceAngle = angle;
+    this.slices++;
+    this.smashHits++;
+
+    const peak = this.game.audio.toAudioTime(note.peakTime);
+    let key = this._judgeKey(Math.abs(now - peak));
+    if (note.type === 'golden') key = 'PERFECT_PLUS';
+
+    const prop = officeProp(note);
+    fx.juiceSlice(x, y, prop.debris, prop.color, note.type === 'golden' ? 28 : 18);
+    fx.shake(now, note.type === 'golden' ? 10 : 5);
+    if (note.type === 'golden') fx.flashScreen(0.12, COLORS.fever);
+
+    this._applyJudgment(key, note, now, {
+      slice: true, smash: true, hitX: x, hitY: y,
+      silentMissSound: true, skipHud: true,
+    });
+
+    const label = note.type === 'golden' ? t('judgment.payday') : key === 'PERFECT_PLUS' ? t('judgment.shredPlus') : t('judgment.shred');
+    const cls = note.type === 'golden' ? 'mash' : key === 'PERFECT_PLUS' ? 'perfect-plus' : 'great';
+    if (!options.skipHud) hud.showJudgment(label, cls);
+    haptic(note.type === 'golden' ? 'heavy' : 'rigid');
+  }
+
+  _sliceBomb(note, x, y, now) {
+    if (this.diff.bombMode === 'help') {
+      this._helpBomb(note, x, y, now);
+    } else if (this.diff.bombMode === 'dust') {
+      this._dustBomb(note, x, y, now);
+    } else {
+      this._damageBomb(note, x, y, now);
+    }
+  }
+
+  /** Easy: бомба сносит всё вокруг — помогает игроку. */
+  _helpBomb(note, x, y, now) {
+    const { fx, audio, hud, notePool, width, height } = this.game;
+    note.judged = true;
+    note.hit = true;
+    note.fade = 0;
+    this.helpClears++;
+
+    const radius = width * OFFICE.helpRadius;
+    fx.burst(x, y, 40, '#7CFC4A', {
+      speed: 380, gravity: 420, life: 0.7, size: 4.5, lift: 90,
+    });
+    fx.burst(x, y, 24, COLORS.fever, {
+      speed: 260, gravity: 300, life: 0.55, size: 3, lift: 50,
+    });
+    fx.ring(x, y, '#7CFC4A', radius * 0.2, radius, 0.5, 4);
+    fx.shake(now, 12);
+    fx.flashScreen(0.18, '#7CFC4A');
+    this.game.audio.punch(1.1);
+
+    if (!this.diff.canFail) this._addRage(RAGE_GAIN.MASH_FINISH, now);
+
+    for (let i = 0; i < notePool.size; i++) {
+      const other = notePool.items[i];
+      if (!other.active || other.judged || other === note) continue;
+      if (other.type === 'avoid') continue;
+
+      const pos = officePosition(other, now, audio, width, height);
+      if (!pos) continue;
+      if (Math.hypot(pos.x - x, pos.y - y) > radius) continue;
+
+      this._sliceProp(other, pos.x, pos.y, Math.random() * Math.PI, now, { skipHud: true });
+    }
+
+    hud.showJudgment(t('judgment.clear'), 'great');
+    haptic('heavy');
+  }
+
+  /** Medium: бомба поднимает пыль — мешает прицелиться. */
+  _dustBomb(note, x, y, now) {
+    const { fx, audio, hud } = this.game;
+    note.judged = true;
+    note.hit = true;
+    note.fade = 0;
+
+    this._addDust(OFFICE.dustAmount);
+    fx.burst(x, y, 30, '#AA9988', {
+      speed: 180, gravity: -40, life: 1.2, size: 5, lift: 20, drag: 0.96,
+    });
+    fx.burst(x, y, 20, '#D8C8B0', {
+      speed: 120, gravity: -20, life: 1.4, size: 4, lift: 10, drag: 0.97,
+    });
+    fx.shake(now, 8);
+    audio.miss();
+    this.combo = Math.max(0, this.combo - 1);
+    if (!this.diff.canFail) {
+      this.rage = Math.max(0, this.rage - RAGE_MISS * 0.8);
+    }
+
+    hud.showJudgment(t('judgment.dust'), 'good');
+    haptic('soft');
+  }
+
+  /** Hard: бомба наносит урон. */
+  _damageBomb(note, x, y, now) {
+    const { fx, audio, hud } = this.game;
+    note.judged = true;
+    note.hit = true;
+    note.fade = 0;
+
+    fx.burst(x, y, 34, COLORS.avoid, {
+      speed: 420, gravity: 520, life: 0.75, size: 5, lift: 100,
+    });
+    fx.burst(x, y, 18, '#FFAA00', {
+      speed: 260, gravity: 380, life: 0.55, size: 3.5, lift: 70,
+    });
+    fx.flashScreen(0.35, COLORS.avoid);
+    fx.shake(now, 14);
+    audio.alarm();
+
+    this.combo = 0;
+    let delta = AVOID_PENALTY * this.diff.hpDrain;
+    if (this.shieldActive) delta = 0;
+    this.hp = Math.min(MAX_HP, Math.max(0, this.hp + delta));
+
+    hud.showJudgment(t('judgment.boom'), 'miss');
+    haptic('error');
+  }
+
+  _addDust(amount) {
+    this.dust = Math.min(1, this.dust + amount);
+  }
+
+  _fruitUpdate(now, songTime, dt) {
+    const { audio, notePool, width, height } = this.game;
+
+    this.dust = Math.max(0, this.dust - dt * OFFICE.dustDecay);
+
+    this.shieldActive = this.diff.canFail
+      && (songTime < this.shieldTime || this.misses < this.shieldMisses);
+
+    if (this.feverActive && now >= this.feverEndsAt) {
+      this.feverActive = false;
+      this.rage = 70;
+    }
+    if (!this.diff.canFail && !this.feverActive) {
+      this.rage = Math.max(0, this.rage - dt * 1.6);
+    }
+
+    for (let i = 0; i < notePool.size; i++) {
+      const note = notePool.items[i];
+      if (!note.active) continue;
+
+      if (note.judged) {
+        note.fade += dt * 4;
+        if (note.fade >= 1) note.active = false;
+        continue;
+      }
+
+      const pos = officePosition(note, now, audio, width, height);
+      if (!pos) continue;
+
+      const offScreen = pos.y > height * 1.2
+        || pos.x < -width * 0.25
+        || pos.x > width * 1.25;
+
+      if (!offScreen || pos.elapsed < 0.35) continue;
+
+      note.judged = true;
+      note.hit = false;
+      note.fade = 0;
+
+      if (note.type === 'avoid') {
+        this.dodged++;
+        this.score += 120;
+        continue;
+      }
+
+      this._applyJudgment('MISS', note, now, { silentMissSound: true, slice: true });
+    }
+
+    if (this.diff.canFail && this.hp <= 0) {
+      this.hp = 0;
+      this.failed = true;
+      this.finished = true;
+      return;
+    }
+
+    if (audio.duration > 0 && songTime > audio.duration + 1.5) {
+      this.finished = true;
+    }
+  }
+
+  _fruitRender(ctx, now, songTime) {
+    const { width: w, height: h, fx, audio } = this.game;
+    const bands = audio.bands;
+
+    this._drawBackground(ctx, w, h, bands);
+    this._drawOfficeProps(ctx, now, w, h);
+
+    ctx.globalCompositeOperation = 'lighter';
+    fx.drawRibbon(ctx, this.feverActive ? COLORS.fever : '#E8F4FF');
+    fx.drawParticles(ctx);
+    ctx.globalCompositeOperation = 'source-over';
+
+    fx.drawRings(ctx);
+    this._drawDust(ctx, w, h);
+    fx.drawFlash(ctx, w, h);
+  }
+
+  _drawDust(ctx, w, h) {
+    if (this.dust <= 0.02) return;
+    const a = this.dust * 0.58;
+    ctx.fillStyle = `rgba(168, 155, 130, ${a})`;
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.globalAlpha = a * 0.45;
+    for (let i = 0; i < 28; i++) {
+      const px = (i * 97 + Math.floor(this.dust * 200)) % w;
+      const py = (i * 53 + 40) % h;
+      ctx.fillStyle = i % 2 ? '#D8CBB8' : '#B8AA98';
+      ctx.fillRect(px, py, 6 + (i % 4) * 3, 3 + (i % 3) * 2);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  _drawOfficeProps(ctx, now, w, h) {
+    const { audio, notePool, fx } = this.game;
+
+    for (let i = 0; i < notePool.size; i++) {
+      const note = notePool.items[i];
+      if (!note.active) continue;
+
+      const pos = officePosition(note, now, audio, w, h);
+      if (!pos) continue;
+
+      const prop = officeProp(note);
+      const r = officeRadius(note, w);
+      let alpha = 1;
+      if (note.judged) alpha = Math.max(0, 1 - note.fade);
+      if (alpha <= 0.02) continue;
+      if (pos.y < -r * 2 && !note.judged) continue;
+
+      ctx.globalAlpha = alpha;
+
+      if (note.judged && note.hit && note.type !== 'avoid') {
+        this._drawPropHalves(ctx, pos.x, pos.y, r, prop, note.sliceAngle, note.fade, fx);
+      } else if (note.type === 'avoid') {
+        this._drawOfficeBomb(ctx, pos.x, pos.y, r, pos.rotation, fx, alpha);
+      } else {
+        this._drawOfficeProp(ctx, pos.x, pos.y, r, prop, pos.rotation, fx, alpha, note);
+      }
+
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  _drawOfficeProp(ctx, x, y, r, prop, rotation, fx, alpha, note) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rotation);
+
+    fx.drawGlow(ctx, 0, 0, r * 2.2, prop.accent, alpha * 0.4);
+
+    switch (prop.icon) {
+      case 'doc':
+        ctx.fillStyle = prop.color;
+        this._roundRect(ctx, -r * 0.55, -r * 0.7, r * 1.1, r * 1.4, r * 0.08);
+        ctx.fill();
+        ctx.fillStyle = prop.accent;
+        for (let i = 0; i < 4; i++) {
+          ctx.fillRect(-r * 0.38, -r * 0.45 + i * r * 0.22, r * 0.76, r * 0.07);
+        }
+        break;
+      case 'phone':
+        ctx.fillStyle = prop.color;
+        this._roundRect(ctx, -r * 0.38, -r * 0.72, r * 0.76, r * 1.44, r * 0.12);
+        ctx.fill();
+        ctx.fillStyle = prop.accent;
+        this._roundRect(ctx, -r * 0.28, -r * 0.55, r * 0.56, r * 0.95, r * 0.06);
+        ctx.fill();
+        break;
+      case 'mug':
+        ctx.fillStyle = prop.color;
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.45, r * 0.5);
+        ctx.lineTo(-r * 0.35, -r * 0.35);
+        ctx.lineTo(r * 0.35, -r * 0.35);
+        ctx.lineTo(r * 0.45, r * 0.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = prop.accent;
+        ctx.lineWidth = r * 0.12;
+        ctx.beginPath();
+        ctx.arc(r * 0.48, 0, r * 0.28, -Math.PI / 2, Math.PI / 2);
+        ctx.stroke();
+        ctx.fillStyle = '#FFE8CC';
+        ctx.fillRect(-r * 0.3, -r * 0.5, r * 0.6, r * 0.18);
+        break;
+      case 'call':
+        ctx.fillStyle = prop.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.55, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = prop.accent;
+        ctx.lineWidth = 2;
+        for (let i = 1; i <= 3; i++) {
+          ctx.beginPath();
+          ctx.arc(0, 0, r * (0.35 + i * 0.18), -Math.PI * 0.35, Math.PI * 0.35);
+          ctx.stroke();
+        }
+        break;
+      case 'bonus':
+        ctx.fillStyle = prop.color;
+        this._roundRect(ctx, -r * 0.65, -r * 0.42, r * 1.3, r * 0.84, r * 0.08);
+        ctx.fill();
+        ctx.fillStyle = '#FFF';
+        ctx.font = `800 ${Math.round(r * 0.9)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('₽', 0, r * 0.02);
+        ctx.textAlign = 'start';
+        ctx.textBaseline = 'alphabetic';
+        break;
+      default:
+        ctx.fillStyle = prop.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    if (this.diff.sliceDir && note.dir && !note.judged) {
+      this._drawSliceArrow(ctx, r, note.dir);
+    }
+
+    ctx.restore();
+  }
+
+  _drawSliceArrow(ctx, r, dir) {
+    const len = r * 0.85;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.92)';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    if (dir === 'left') {
+      ctx.moveTo(len * 0.3, 0); ctx.lineTo(-len * 0.4, 0);
+      ctx.moveTo(-len * 0.15, -len * 0.22); ctx.lineTo(-len * 0.4, 0); ctx.lineTo(-len * 0.15, len * 0.22);
+    } else if (dir === 'right') {
+      ctx.moveTo(-len * 0.3, 0); ctx.lineTo(len * 0.4, 0);
+      ctx.moveTo(len * 0.15, -len * 0.22); ctx.lineTo(len * 0.4, 0); ctx.lineTo(len * 0.15, len * 0.22);
+    } else if (dir === 'up') {
+      ctx.moveTo(0, len * 0.3); ctx.lineTo(0, -len * 0.4);
+      ctx.moveTo(-len * 0.22, -len * 0.15); ctx.lineTo(0, -len * 0.4); ctx.lineTo(len * 0.22, -len * 0.15);
+    } else {
+      ctx.moveTo(0, -len * 0.3); ctx.lineTo(0, len * 0.4);
+      ctx.moveTo(-len * 0.22, len * 0.15); ctx.lineTo(0, len * 0.4); ctx.lineTo(len * 0.22, len * 0.15);
+    }
+    ctx.stroke();
+  }
+
+  _drawOfficeBomb(ctx, x, y, r, rotation, fx, alpha) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rotation);
+
+    const help = this.diff.bombMode === 'help';
+    const dust = this.diff.bombMode === 'dust';
+    const glow = help ? '#7CFC4A' : dust ? '#AA9988' : COLORS.avoid;
+    fx.drawGlow(ctx, 0, 0, r * 2.2, glow, alpha * 0.55);
+
+    ctx.fillStyle = help ? '#2A4A2A' : dust ? '#4A4540' : '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = help ? '#7CFC4A' : dust ? '#D8C8B0' : '#FF3300';
+    ctx.font = `800 ${Math.round(r * 0.75)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(help ? '!' : dust ? '~' : '×', 0, r * 0.05);
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
+
+    if (help) {
+      ctx.strokeStyle = '#7CFC4A';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 1.15, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  _drawPropHalves(ctx, x, y, r, prop, angle, fade, fx) {
+    const split = fade * r * 2.4;
+    const nx = Math.cos(angle + Math.PI / 2);
+    const ny = Math.sin(angle + Math.PI / 2);
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+
+    for (const side of [-1, 1]) {
+      ctx.save();
+      ctx.translate(nx * split * side, ny * split * side);
+      ctx.fillStyle = prop.color;
+      ctx.fillRect(-r * 0.5, -r * 0.08, r, r * 0.16);
+      ctx.fillStyle = prop.debris;
+      ctx.fillRect(-r * 0.35, -r * 0.35, r * 0.25, r * 0.5);
+      ctx.restore();
+    }
+
+    fx.drawGlow(ctx, 0, 0, r * 1.4, prop.debris, Math.max(0, 0.45 - fade));
+    ctx.restore();
+  }
+
   _roundRect(ctx, x, y, w, h, r) {
     const radius = Math.min(r, w / 2, h / 2);
     ctx.beginPath();
@@ -1080,7 +1590,14 @@ export class DriveMode {
         flow: this.rushes,
         perfect: this.counts.PERFECT_PLUS + this.counts.PERFECT,
       },
-      rows: [
+      rows: this.fruitMode ? [
+        [t('row.slices'), String(this.slices)],
+        ...(this.diff.bombMode === 'help' ? [[t('row.clears'), String(this.helpClears)]] : []),
+        [t('row.fever'), String(this.feverCount)],
+        [t('row.dodged'), String(this.dodged)],
+        [t('row.bestCombo'), String(this.maxCombo)],
+        [t('row.accuracy'), `${Math.round(accuracy * 100)}%`],
+      ] : [
         ['Perfect+', String(this.counts.PERFECT_PLUS)],
         ['Perfect', String(this.counts.PERFECT)],
         ['Great', String(this.counts.GREAT)],

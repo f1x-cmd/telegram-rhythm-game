@@ -62,7 +62,14 @@ export function createNote() {
     linkTime: -1,      // предыдущая нота цепочки для соединительной линии
     linkX: 0,
     swipePointer: -1,
-    fade: 0,           // анимация исчезновения
+    fade: 0,
+    spawnY: 1.07,
+    velX: 0,
+    velY: -1.2,
+    spin: 0,
+    fruitKind: 0,
+    peakTime: 0,
+    sliceAngle: 0,
   };
 }
 

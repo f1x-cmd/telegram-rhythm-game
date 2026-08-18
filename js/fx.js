@@ -97,6 +97,17 @@ export class Fx {
     }
   }
 
+  /** Взрыв сока при разрезе фрукта (DRIVE Fruit Ninja). */
+  juiceSlice(x, y, juiceColor, pulpColor, count = 22) {
+    this.burst(x, y, count, juiceColor, {
+      speed: 280, spread: Math.PI * 2, gravity: 680, life: 0.65, size: 4, lift: 140, drag: 0.91,
+    });
+    this.burst(x, y, Math.floor(count * 0.55), pulpColor, {
+      speed: 180, spread: Math.PI * 1.4, gravity: 820, life: 0.5, size: 2.6, lift: 60, drag: 0.88,
+    });
+    this.ring(x, y, juiceColor, 8, 48, 0.35, 2);
+  }
+
   /** Медленно всплывающие огоньки фона (RELAX). */
   seedFloaters(width, height) {
     for (let i = 0; i < this.floaters.size; i++) {
