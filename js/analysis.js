@@ -6,8 +6,8 @@
 import { LANES, DRIVE_DIFFICULTY, RELAX, MASH, OFFICE, OFFICE_PROPS } from './config.js';
 import { fallPeakOffset } from './fruit.js';
 
-const FRAME = 1024;
-const HOP = 512;
+const FRAME = 2048;
+const HOP = 1024;
 
 /** Детерминированный ГПСЧ, чтобы карта одного трека была стабильной. */
 function mulberry32(seed) {
@@ -22,16 +22,7 @@ function mulberry32(seed) {
 }
 
 function mixToMono(buffer) {
-  const len = buffer.length;
-  const mono = new Float32Array(len);
-  const channels = buffer.numberOfChannels;
-  for (let c = 0; c < channels; c++) {
-    const data = buffer.getChannelData(c);
-    for (let i = 0; i < len; i++) mono[i] += data[i];
-  }
-  const scale = 1 / channels;
-  for (let i = 0; i < len; i++) mono[i] *= scale;
-  return mono;
+  return buffer.getChannelData(0);
 }
 
 /**

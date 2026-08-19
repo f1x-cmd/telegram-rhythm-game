@@ -68,7 +68,7 @@ export const OFFICE = {
   sliceTargetY: 0.52,
   radius: 0.119,
   goldenRadius: 0.146,
-  hitPad: 2.05,
+  hitPad: 1.22,
   sliceMinPx: 1,
   bladeLife: 0.42,
   helpRadius: 1.4,

@@ -7,6 +7,30 @@ import { t } from './i18n.js';
 
 const PENTATONIC = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21];
 
+/** Safari / старый iOS: decodeAudioData только через колбэк. */
+function decodeBuffer(ctx, raw) {
+  const copy = raw.slice(0);
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const ok = (buffer) => {
+      if (settled) return;
+      settled = true;
+      resolve(buffer);
+    };
+    const fail = (err) => {
+      if (settled) return;
+      settled = true;
+      reject(err || new Error('decode'));
+    };
+    try {
+      const ret = ctx.decodeAudioData(copy, ok, fail);
+      if (ret && typeof ret.then === 'function') ret.then(ok, fail);
+    } catch (err) {
+      fail(err);
+    }
+  });
+}
+
 export class AudioEngine {
   constructor() {
     this.ctx = null;
@@ -25,6 +49,7 @@ export class AudioEngine {
     this.bands = { bass: 0, mid: 0, high: 0 };
 
     this._cache = new Map();
+    this._decoded = new Map();
     this._inflight = new Map();
     this._noiseBuffer = null;
     this._chimeStep = 0;
@@ -34,7 +59,12 @@ export class AudioEngine {
   async init() {
     if (!this.ctx) {
       const Ctor = window.AudioContext || window.webkitAudioContext;
-      this.ctx = new Ctor({ latencyHint: 'interactive' });
+      if (!Ctor) throw new Error(t('error.start'));
+      try {
+        this.ctx = new Ctor({ latencyHint: 'interactive' });
+      } catch (_) {
+        this.ctx = new Ctor();
+      }
 
       this.master = this.ctx.createGain();
       this.master.gain.value = 0.9;
@@ -54,16 +84,23 @@ export class AudioEngine {
       this.sfxGain.gain.value = 0.7;
       this.sfxGain.connect(this.master);
 
-      this.reverb = this.ctx.createConvolver();
-      this.reverb.buffer = this._createImpulse(2.2);
-      this.reverbGain = this.ctx.createGain();
-      this.reverbGain.gain.value = 0.0;
-      this.reverb.connect(this.reverbGain);
-      this.reverbGain.connect(this.master);
+      try {
+        this.reverb = this.ctx.createConvolver();
+        this.reverb.buffer = this._createImpulse(1.2);
+        this.reverbGain = this.ctx.createGain();
+        this.reverbGain.gain.value = 0.0;
+        this.reverb.connect(this.reverbGain);
+        this.reverbGain.connect(this.master);
+      } catch (_) {
+        this.reverb = null;
+        this.reverbGain = null;
+      }
 
       this._noiseBuffer = this._createNoise(0.4);
     }
-    if (this.ctx.state === 'suspended') await this.ctx.resume();
+    if (this.ctx.state === 'suspended') {
+      try { await this.ctx.resume(); } catch (_) { /* iOS иногда откладывает */ }
+    }
     return this.ctx;
   }
 
@@ -101,8 +138,14 @@ export class AudioEngine {
         if (!response.ok) throw new Error('prefetch');
         return response.arrayBuffer();
       })
-      .then((raw) => {
+      .then(async (raw) => {
         this._cache.set(url, raw);
+        if (this.ctx) {
+          try {
+            const decoded = await decodeBuffer(this.ctx, raw);
+            this._decoded.set(url, decoded);
+          } catch (_) { /* декод на старте партии */ }
+        }
         this._inflight.delete(url);
       })
       .catch(() => {
@@ -116,8 +159,16 @@ export class AudioEngine {
     if (window.location.protocol === 'file:') {
       throw new Error(t('error.server'));
     }
+    if (this._decoded.has(url)) {
+      this.buffer = this._decoded.get(url);
+      return this.buffer;
+    }
     if (this._inflight.has(url)) {
       try { await this._inflight.get(url); } catch (_) { /* грузим заново ниже */ }
+    }
+    if (this._decoded.has(url)) {
+      this.buffer = this._decoded.get(url);
+      return this.buffer;
     }
     let raw = this._cache.get(url);
     if (!raw) {
@@ -126,14 +177,15 @@ export class AudioEngine {
       raw = await response.arrayBuffer();
       this._cache.set(url, raw);
     }
-    this.buffer = await this.ctx.decodeAudioData(raw.slice(0));
+    this.buffer = await decodeBuffer(this.ctx, raw);
+    this._decoded.set(url, this.buffer);
     return this.buffer;
   }
 
   async loadFile(file) {
     await this.init();
     const raw = await file.arrayBuffer();
-    this.buffer = await this.ctx.decodeAudioData(raw);
+    this.buffer = await decodeBuffer(this.ctx, raw);
     return this.buffer;
   }
 

@@ -33,11 +33,11 @@ class Game {
   constructor() {
     this.audio = new AudioEngine();
     this.fx = new Fx();
-    this.notePool = createPool(4000, createNote);
+    this.notePool = createPool(800, createNote);
     this.pointers = new PointerTracker();
 
     this.canvas = document.getElementById('game-canvas');
-    this.ctx = this.canvas.getContext('2d');
+    this.ctx = this.canvas.getContext('2d', { alpha: false });
     this.field = document.getElementById('game-screen');
 
     this.width = 0;
@@ -64,12 +64,12 @@ class Game {
       onCustomFile: (file) => this._setCustomFile(file),
       onOffsetChange: (ms) => this._setOffset(ms),
       onLanguageChange: (code) => this._setLanguage(code),
-      onPlay: () => this.start(),
+      onPlay: () => { this.audio.init(); this.start(); },
       onPause: () => this.pauseGame(),
       onResume: () => this.resumeGame(),
       onSaveScore: () => this.saveScore(),
       onBack: () => this._toMenu(),
-      onRetry: () => this.start(),
+      onRetry: () => { this.audio.init(); this.start(); },
       onMenu: () => this._toMenu(),
       onOpenProfile: () => this._openProfile(),
       onBoardChange: (board) => this._openProfile(board),
@@ -85,7 +85,11 @@ class Game {
     this._rafId = 0;
     this._lastTime = 0;
     this._playStartedAt = 0;
+    this._analysisCache = new Map();
+    this._ios = /iP(hone|ad|od)/.test(navigator.userAgent)
+      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
+    document.addEventListener('pointerdown', () => { this.audio.init(); }, { once: true });
     this._bindEvents();
     this._resize();
     applyStaticText();
@@ -303,13 +307,15 @@ class Game {
     window.addEventListener('pagehide', () => this.pauseGame());
 
     const field = this.field;
-    field.addEventListener('pointerdown', async (event) => {
+    field.addEventListener('pointerdown', (event) => {
       if (this.state !== 'playing') return;
       if (event.target.closest('button')) return;
       event.preventDefault();
-      await this.audio.init();
+      this.audio.init();
       this.ui.dismissCoach(this.modeId, this.difficulty);
-      try { field.setPointerCapture(event.pointerId); } catch (_) { /* не критично */ }
+      if (!this._ios) {
+        try { field.setPointerCapture(event.pointerId); } catch (_) { /* не критично */ }
+      }
       const { x, y } = this._localPoint(event);
       const slot = this.pointers.down(event.pointerId, x, y, this.audio.time);
       if (slot) this.mode?.onDown(slot);
@@ -335,7 +341,6 @@ class Game {
     };
     field.addEventListener('pointerup', release);
     field.addEventListener('pointercancel', release);
-    field.addEventListener('lostpointercapture', release);
   }
 
   _localPoint(event) {
@@ -360,8 +365,13 @@ class Game {
 
   async start() {
     if (this.state === 'loading') return;
-    await this._ready;
-    await loadLiveOps({ force: true });
+    const unlock = this.audio.init();
+    if (this._ready) {
+      await Promise.race([
+        this._ready,
+        new Promise((resolve) => setTimeout(resolve, 280)),
+      ]);
+    }
 
     if (isBanned(me().id)) {
       this.ui.showError(t('ops.banned'));
@@ -398,19 +408,25 @@ class Game {
       this.ui.setLoading(t('load.track'));
       await this._nextFrame();
 
-      await this.audio.init();
+      await unlock;
       if (this.customFile) await this.audio.loadFile(this.customFile);
       else if (track) await this.audio.loadUrl(track.url);
       else throw new Error(t('ops.noTracks'));
+      if (!this.audio.buffer) throw new Error(t('error.start'));
 
       this.ui.setLoading(t('load.analyze'));
       await this._nextFrame();
-      await this._nextFrame();
 
-      const analysis = analyzeAudio(this.audio.buffer);
-      const chart = this.modeId === 'relax'
-        ? buildRelaxChart(analysis)
-        : buildDriveChart(analysis, this.difficulty);
+      const buffer = this.audio.buffer;
+      const cacheKey = `${this.modeId}:${this.difficulty}:${buffer.length}:${buffer.sampleRate}:${Math.round(buffer.duration * 1000)}`;
+      let chart = this._analysisCache.get(cacheKey);
+      if (!chart) {
+        const analysis = analyzeAudio(buffer);
+        chart = this.modeId === 'relax'
+          ? buildRelaxChart(analysis)
+          : buildDriveChart(analysis, this.difficulty);
+        this._analysisCache.set(cacheKey, chart);
+      }
 
       if (chart.notes.length === 0) {
         throw new Error(t('error.rhythm'));
@@ -424,7 +440,8 @@ class Game {
       this.mode.start(chart, this.difficulty);
 
       const approach = this.modeId === 'relax' ? RELAX.approach : DRIVE_DIFFICULTY[this.difficulty].approach;
-      this.audio.startMusic(approach + 0.7);
+      const leadIn = this.mode?.fruitMode ? 0.5 : Math.min(1.4, approach * 0.45);
+      this.audio.startMusic(leadIn);
 
       this.ui.setLoading('');
       this.state = 'playing';
@@ -577,4 +594,10 @@ class Game {
 }
 
 initTelegram();
-window.game = new Game();
+try {
+  window.game = new Game();
+} catch (error) {
+  console.error(error);
+  const node = document.getElementById('menu-error') || document.body;
+  node.textContent = error?.message || String(error);
+}

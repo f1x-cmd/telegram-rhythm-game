@@ -1099,7 +1099,7 @@ export class DriveMode {
     slot.prevY = slot.y;
     this.game.fx.pushRibbon(slot.x, slot.y, OFFICE.bladeLife);
     this.game.audio.click(0.14);
-    this._bladeSlice(slot.x, slot.y, slot.x, slot.y, now, slot);
+    this._bladeSlice(slot.x, slot.y, slot.x, slot.y, now, slot, true);
   }
 
   _fruitOnMove(slot) {
@@ -1109,10 +1109,10 @@ export class DriveMode {
 
     const now = this.game.audio.time;
     this.game.fx.pushRibbon(slot.x, slot.y, OFFICE.bladeLife);
-    this._bladeSlice(slot.prevX, slot.prevY, slot.x, slot.y, now, slot);
+    this._bladeSlice(slot.prevX, slot.prevY, slot.x, slot.y, now, slot, false);
   }
 
-  _bladeSlice(x1, y1, x2, y2, now, slot = null) {
+  _bladeSlice(x1, y1, x2, y2, now, slot = null, tap = false) {
     const { notePool, audio, width, height } = this.game;
     const angle = (x1 === x2 && y1 === y2) ? 0 : bladeAngle(x1, y1, x2, y2);
     const dirX1 = slot ? slot.startX : x1;
@@ -1128,7 +1128,7 @@ export class DriveMode {
       const pos = officePosition(note, now, audio, width, height);
       if (!pos) continue;
 
-      const r = officeHitRadius(note, width);
+      const r = tap ? officeRadius(note, width) : officeHitRadius(note, width);
       if (!bladeHitsCircle(x1, y1, x2, y2, pos.x, pos.y, r)) continue;
 
       if (note.type === 'avoid') {

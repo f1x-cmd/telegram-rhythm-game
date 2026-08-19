@@ -39,6 +39,7 @@ const DEFAULTS = {
 
 let state = { ...DEFAULTS, dailyTargets: { ...DEFAULTS.dailyTargets }, nps: { ...DEFAULTS.nps } };
 let loaded = false;
+let customNps = false;
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -56,10 +57,12 @@ function applyRuntime() {
   DONATE.url = state.donateUrl || '';
   DONATE.bot = state.donateBot || '';
 
-  DRIVE_DIFFICULTY.easy.nps = Number(state.nps.easy) || DEFAULTS.nps.easy;
-  DRIVE_DIFFICULTY.medium.nps = Number(state.nps.medium) || DEFAULTS.nps.medium;
-  DRIVE_DIFFICULTY.hard.nps = Number(state.nps.hard) || DEFAULTS.nps.hard;
-  RELAX.nps = Number(state.nps.relax) || DEFAULTS.nps.relax;
+  if (customNps) {
+    DRIVE_DIFFICULTY.easy.nps = Number(state.nps.easy) || DRIVE_DIFFICULTY.easy.nps;
+    DRIVE_DIFFICULTY.medium.nps = Number(state.nps.medium) || DRIVE_DIFFICULTY.medium.nps;
+    DRIVE_DIFFICULTY.hard.nps = Number(state.nps.hard) || DRIVE_DIFFICULTY.hard.nps;
+    RELAX.nps = Number(state.nps.relax) || RELAX.nps;
+  }
 
   // щит — экспортированные константы нельзя переприсвоить снаружи модуля,
   // поэтому читаем через getters ниже; здесь только нормализуем числа
@@ -88,6 +91,11 @@ export async function loadLiveOps(options = {}) {
           donatePacks: Array.isArray(parsed.donatePacks) ? parsed.donatePacks : [...DEFAULTS.donatePacks],
           audit: Array.isArray(parsed.audit) ? parsed.audit.slice(-80) : [],
         };
+        customNps = Boolean(parsed.nps) && !(
+          Number(parsed.nps.easy) === 2
+          && Number(parsed.nps.medium) === 3.4
+          && Number(parsed.nps.hard) === 6
+        );
       }
     } catch (_) { /* битый JSON — заводские значения */ }
   }
@@ -101,6 +109,7 @@ export function liveops() {
 }
 
 export function saveLiveOps(patch, who = 'admin') {
+  if (patch?.nps) customNps = true;
   state = {
     ...state,
     ...patch,
@@ -119,6 +128,7 @@ export function saveLiveOps(patch, who = 'admin') {
 }
 
 export function resetLiveOps() {
+  customNps = false;
   state = clone(DEFAULTS);
   applyRuntime();
   storage.set(KEY, JSON.stringify(state));
