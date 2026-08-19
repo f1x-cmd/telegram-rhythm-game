@@ -27,6 +27,11 @@ export function officeRadius(note, width) {
   return width * base * scale * (note.type === 'golden' ? 1.1 : 1);
 }
 
+/** Хитбокс шире картинки — свайп по стрелке и краю тоже режет. */
+export function officeHitRadius(note, width) {
+  return officeRadius(note, width) * (OFFICE.hitPad ?? 1.55);
+}
+
 /** @deprecated */
 export const fruitRadius = officeRadius;
 
@@ -45,8 +50,9 @@ export function segmentHitsCircle(x1, y1, x2, y2, cx, cy, r) {
   const dx = x2 - x1;
   const dy = y2 - y1;
   const lenSq = dx * dx + dy * dy;
-  if (lenSq < 0.01) {
-    return Math.hypot(x1 - cx, y1 - cy) <= r;
+  if (lenSq < 1) {
+    return Math.hypot(x1 - cx, y1 - cy) <= r
+      || Math.hypot(x2 - cx, y2 - cy) <= r;
   }
 
   let t = ((cx - x1) * dx + (cy - y1) * dy) / lenSq;
@@ -67,16 +73,17 @@ const DIR_ANGLES = {
   down: Math.PI / 2,
 };
 
-/** Резать по направлению стрелки (medium / hard). */
+/** Резать по направлению стрелки (medium / hard). Короткий жест ещё не задаёт ось. */
 export function sliceMatchesDir(note, x1, y1, x2, y2, required) {
   if (!required || !note.dir) return true;
+  if (Math.hypot(x2 - x1, y2 - y1) < 18) return true;
   const target = DIR_ANGLES[note.dir];
   if (target === undefined) return true;
 
   const angle = bladeAngle(x1, y1, x2, y2);
   let delta = Math.abs(angle - target);
   if (delta > Math.PI) delta = Math.PI * 2 - delta;
-  return delta <= Math.PI / 2.35;
+  return delta <= Math.PI / 2;
 }
 
 /** Когда предмет проходит «идеальную» высоту для разреза. */

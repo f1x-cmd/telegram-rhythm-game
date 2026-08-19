@@ -62,15 +62,16 @@ export const DRIVE_SMASH_ZONE_Y = 0.52; // доля экрана — зона «
 /** Office Rage: предметы падают сверху, режутся свайпом по экрану. */
 export const OFFICE = {
   spawnYTop: { min: -0.12, max: -0.03 },
-  gravity: 1.05,
-  fallVy: { min: 0.2, max: 0.38 },
-  driftX: 0.26,
+  gravity: 0.88,
+  fallVy: { min: 0.2, max: 0.32 },
+  driftX: 0.22,
   sliceTargetY: 0.52,
-  radius: 0.085,
-  goldenRadius: 0.104,
-  sliceMinPx: 12,
+  radius: 0.119,
+  goldenRadius: 0.146,
+  hitPad: 1.55,
+  sliceMinPx: 3,
   bladeLife: 0.42,
-  helpRadius: 0.26,
+  helpRadius: 1.4,
   dustAmount: 0.52,
   dustDecay: 0.32,
 };
@@ -119,25 +120,25 @@ export const CUSTOM_AUDIO_MAX_BYTES = 20 * 1024 * 1024;
 /** Настройки сложности режима DRIVE. Названия — в i18n (ключи diff.*). */
 export const DRIVE_DIFFICULTY = {
   easy: {
-    nps: 1.25, approach: 2.7, windowScale: 1.85,
+    nps: 1.05, approach: 2.7, windowScale: 1.85,
     chord: 1, types: ['office', 'bonus'], hpDrain: 0.45,
     laneSnap: true, holdLanePad: 0.5, smashZone: true, canFail: false,
     fruitNinja: true, bombMode: 'help', sliceDir: false,
-    fallGravity: 0.92, fallVy: { min: 0.22, max: 0.36 }, sizeScale: 1.18,
+    fallGravity: 0.48, fallVy: { min: 0.08, max: 0.15 }, sizeScale: 1.18,
   },
   medium: {
-    nps: 1.65, approach: 2.25, windowScale: 1.55,
+    nps: 1.45, approach: 2.25, windowScale: 1.55,
     chord: 1, types: ['office', 'bonus', 'avoid'], hpDrain: 0.65,
     laneSnap: true, holdLanePad: 0.38, smashZone: true, canFail: false,
     fruitNinja: true, bombMode: 'dust', sliceDir: true,
     fallGravity: 0.88, fallVy: { min: 0.2, max: 0.32 }, sizeScale: 1.22,
   },
   hard: {
-    nps: 1.55, approach: 2.4, windowScale: 1.35,
+    nps: 1.7, approach: 2.15, windowScale: 1.35,
     chord: 1, types: ['office', 'bonus', 'avoid'], hpDrain: 1.0,
     laneSnap: false, holdLanePad: 0.24, smashZone: true, canFail: true,
     fruitNinja: true, bombMode: 'damage', sliceDir: true,
-    fallGravity: 0.58, fallVy: { min: 0.11, max: 0.2 }, sizeScale: 1.42,
+    fallGravity: 1.08, fallVy: { min: 0.24, max: 0.38 }, sizeScale: 1.28,
   },
 };
 

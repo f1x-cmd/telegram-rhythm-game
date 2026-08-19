@@ -10,7 +10,7 @@ import {
   RAGE_GAIN, RAGE_MISS, RAGE_FEVER_TIME, DRIVE_SMASH_ZONE_Y, OFFICE, comboMultiplier,
 } from './config.js';
 import {
-  officePosition, officeRadius, officeProp, segmentHitsCircle, bladeAngle, sliceMatchesDir,
+  officePosition, officeRadius, officeHitRadius, officeProp, segmentHitsCircle, bladeAngle, sliceMatchesDir,
 } from './fruit.js';
 import { drawOfficeIcon, drawOfficeBomb, drawSliceHint } from './office-art.js';
 import { haptic } from './telegram.js';
@@ -1111,12 +1111,16 @@ export class DriveMode {
 
     const now = this.game.audio.time;
     this.game.fx.pushRibbon(slot.x, slot.y, OFFICE.bladeLife);
-    this._bladeSlice(slot.prevX, slot.prevY, slot.x, slot.y, now);
+    this._bladeSlice(slot.prevX, slot.prevY, slot.x, slot.y, now, slot);
   }
 
-  _bladeSlice(x1, y1, x2, y2, now) {
+  _bladeSlice(x1, y1, x2, y2, now, slot = null) {
     const { notePool, audio, width, height } = this.game;
     const angle = bladeAngle(x1, y1, x2, y2);
+    const dirX1 = slot ? slot.startX : x1;
+    const dirY1 = slot ? slot.startY : y1;
+    const dirX2 = slot ? slot.x : x2;
+    const dirY2 = slot ? slot.y : y2;
     const hits = [];
 
     for (let i = 0; i < notePool.size; i++) {
@@ -1126,12 +1130,14 @@ export class DriveMode {
       const pos = officePosition(note, now, audio, width, height);
       if (!pos) continue;
 
-      const r = officeRadius(note, width);
-      if (!segmentHitsCircle(x1, y1, x2, y2, pos.x, pos.y, r)) continue;
+      const r = officeHitRadius(note, width);
+      const onBlade = segmentHitsCircle(x1, y1, x2, y2, pos.x, pos.y, r)
+        || Math.hypot(x2 - pos.x, y2 - pos.y) <= r;
+      if (!onBlade) continue;
 
       if (note.type === 'avoid') {
         hits.push({ note, pos, bomb: true });
-      } else if (sliceMatchesDir(note, x1, y1, x2, y2, this.diff.sliceDir)) {
+      } else if (sliceMatchesDir(note, dirX1, dirY1, dirX2, dirY2, this.diff.sliceDir)) {
         hits.push({ note, pos, bomb: false });
       } else {
         this._wrongSlice(note, pos, now);
@@ -1203,14 +1209,14 @@ export class DriveMode {
     note.fade = 0;
     this.helpClears++;
 
-    const radius = width * OFFICE.helpRadius;
+    const radius = Math.hypot(width, height);
     fx.burst(x, y, 40, '#7CFC4A', {
       speed: 380, gravity: 420, life: 0.7, size: 4.5, lift: 90,
     });
     fx.burst(x, y, 24, COLORS.fever, {
       speed: 260, gravity: 300, life: 0.55, size: 3, lift: 50,
     });
-    fx.ring(x, y, '#7CFC4A', radius * 0.2, radius, 0.5, 4);
+    fx.ring(x, y, '#7CFC4A', 24, Math.max(width, height) * 0.95, 0.55, 5);
     fx.shake(now, 12);
     fx.flashScreen(0.18, '#7CFC4A');
     this.game.audio.punch(1.1);
@@ -1224,6 +1230,9 @@ export class DriveMode {
 
       const pos = officePosition(other, now, audio, width, height);
       if (!pos) continue;
+      if (pos.y < -officeRadius(other, width) * 2) continue;
+      if (pos.y > height * 1.12) continue;
+      if (pos.x < -width * 0.2 || pos.x > width * 1.2) continue;
       if (Math.hypot(pos.x - x, pos.y - y) > radius) continue;
 
       this._sliceProp(other, pos.x, pos.y, Math.random() * Math.PI, now, { skipHud: true });
