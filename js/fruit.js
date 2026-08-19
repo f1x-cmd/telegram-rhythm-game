@@ -59,7 +59,13 @@ export function segmentHitsCircle(x1, y1, x2, y2, cx, cy, r) {
   t = Math.max(0, Math.min(1, t));
   const px = x1 + t * dx;
   const py = y1 + t * dy;
-  return Math.hypot(px - cx, py - cy) <= r * 1.15;
+  return Math.hypot(px - cx, py - cy) <= r;
+}
+
+export function bladeHitsCircle(x1, y1, x2, y2, cx, cy, r) {
+  return Math.hypot(x1 - cx, y1 - cy) <= r
+    || Math.hypot(x2 - cx, y2 - cy) <= r
+    || segmentHitsCircle(x1, y1, x2, y2, cx, cy, r);
 }
 
 export function bladeAngle(x1, y1, x2, y2) {
@@ -76,14 +82,14 @@ const DIR_ANGLES = {
 /** Резать по направлению стрелки (medium / hard). Короткий жест ещё не задаёт ось. */
 export function sliceMatchesDir(note, x1, y1, x2, y2, required) {
   if (!required || !note.dir) return true;
-  if (Math.hypot(x2 - x1, y2 - y1) < 18) return true;
+  if (Math.hypot(x2 - x1, y2 - y1) < 28) return true;
   const target = DIR_ANGLES[note.dir];
   if (target === undefined) return true;
 
   const angle = bladeAngle(x1, y1, x2, y2);
   let delta = Math.abs(angle - target);
   if (delta > Math.PI) delta = Math.PI * 2 - delta;
-  return delta <= Math.PI / 2;
+  return delta <= (Math.PI * 2) / 3;
 }
 
 /** Когда предмет проходит «идеальную» высоту для разреза. */

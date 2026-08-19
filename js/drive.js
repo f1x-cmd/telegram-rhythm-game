@@ -10,7 +10,7 @@ import {
   RAGE_GAIN, RAGE_MISS, RAGE_FEVER_TIME, DRIVE_SMASH_ZONE_Y, OFFICE, comboMultiplier,
 } from './config.js';
 import {
-  officePosition, officeRadius, officeHitRadius, officeProp, segmentHitsCircle, bladeAngle, sliceMatchesDir,
+  officePosition, officeRadius, officeHitRadius, officeProp, bladeHitsCircle, bladeAngle, sliceMatchesDir,
 } from './fruit.js';
 import { drawOfficeIcon, drawOfficeBomb, drawSliceHint } from './office-art.js';
 import { haptic } from './telegram.js';
@@ -1099,15 +1099,13 @@ export class DriveMode {
     slot.prevY = slot.y;
     this.game.fx.pushRibbon(slot.x, slot.y, OFFICE.bladeLife);
     this.game.audio.click(0.14);
-    if (!this.diff.sliceDir) {
-      this._bladeSlice(slot.x, slot.y, slot.x + 3, slot.y + 2, now);
-    }
+    this._bladeSlice(slot.x, slot.y, slot.x, slot.y, now, slot);
   }
 
   _fruitOnMove(slot) {
     const dx = slot.x - slot.prevX;
     const dy = slot.y - slot.prevY;
-    if (Math.hypot(dx, dy) < OFFICE.sliceMinPx) return;
+    if (dx === 0 && dy === 0) return;
 
     const now = this.game.audio.time;
     this.game.fx.pushRibbon(slot.x, slot.y, OFFICE.bladeLife);
@@ -1116,7 +1114,7 @@ export class DriveMode {
 
   _bladeSlice(x1, y1, x2, y2, now, slot = null) {
     const { notePool, audio, width, height } = this.game;
-    const angle = bladeAngle(x1, y1, x2, y2);
+    const angle = (x1 === x2 && y1 === y2) ? 0 : bladeAngle(x1, y1, x2, y2);
     const dirX1 = slot ? slot.startX : x1;
     const dirY1 = slot ? slot.startY : y1;
     const dirX2 = slot ? slot.x : x2;
@@ -1131,9 +1129,7 @@ export class DriveMode {
       if (!pos) continue;
 
       const r = officeHitRadius(note, width);
-      const onBlade = segmentHitsCircle(x1, y1, x2, y2, pos.x, pos.y, r)
-        || Math.hypot(x2 - pos.x, y2 - pos.y) <= r;
-      if (!onBlade) continue;
+      if (!bladeHitsCircle(x1, y1, x2, y2, pos.x, pos.y, r)) continue;
 
       if (note.type === 'avoid') {
         hits.push({ note, pos, bomb: true });

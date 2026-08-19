@@ -317,9 +317,15 @@ class Game {
 
     field.addEventListener('pointermove', (event) => {
       if (this.state !== 'playing') return;
-      const { x, y } = this._localPoint(event);
-      const slot = this.pointers.move(event.pointerId, x, y);
-      if (slot) this.mode?.onMove(slot);
+      const samples = typeof event.getCoalescedEvents === 'function'
+        ? event.getCoalescedEvents()
+        : null;
+      const points = samples && samples.length ? samples : [event];
+      for (const sample of points) {
+        const { x, y } = this._localPoint(sample);
+        const slot = this.pointers.move(event.pointerId, x, y);
+        if (slot) this.mode?.onMove(slot);
+      }
     });
 
     const release = (event) => {
@@ -333,7 +339,7 @@ class Game {
   }
 
   _localPoint(event) {
-    const rect = this.canvas.getBoundingClientRect();
+    const rect = this.field.getBoundingClientRect();
     return { x: event.clientX - rect.left, y: event.clientY - rect.top };
   }
 
