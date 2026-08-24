@@ -16,7 +16,7 @@ import { loadSocial, me, socialDump } from './social.js';
 import { loadDaily, status as dailyStatus, adminSetGoal } from './daily.js';
 import { loadLanguage } from './i18n.js';
 
-const SESSION = 'rhythm_ops_ok';
+const SESSION = 'rhythm_ops_tg_v2';
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
 
@@ -366,15 +366,15 @@ async function bootConsole() {
 }
 
 function bind() {
-  $('#gate-form').addEventListener('submit', (e) => {
+  $('#gate-form')?.addEventListener('submit', (e) => {
     e.preventDefault();
-    const pin = $('#pin').value;
-    if (pin === ADMIN.pin || canEnterByTelegram()) {
+    if (canEnterByTelegram()) {
       grant();
       bootConsole();
       return;
     }
-    $('#gate-error').textContent = 'Неверный PIN.';
+    const err = $('#gate-error');
+    if (err) err.textContent = 'Нет доступа: нужен Telegram ID из белого списка оператора.';
   });
 
   $('#nav').addEventListener('click', (e) => {

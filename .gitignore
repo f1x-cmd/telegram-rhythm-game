@@ -1,0 +1,32 @@
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+
+# Vercel / hosting
+.vercel
+
+# Keys and credentials
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+**/credentials.json
+secrets.json
+**/*secret*
+
+# Dependencies
+node_modules
+
+# OS and editor junk
+.DS_Store
+Thumbs.db
+.idea
+.vscode
+
+# Local screenshots and Telegram dumps (not game assets)
+/*.jpg
+/*.jpeg
+519759*.jpg
+mini-app-cover.png

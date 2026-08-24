@@ -231,11 +231,10 @@ export const DONATE = {
 };
 
 /**
- * Доступ в админ-панель (admin.html).
- * pin — локальный пароль; ids — Telegram user id, которые входят без пароля.
+ * Доступ в admin.html только по Telegram ID из списка.
+ * В публичной сборке список пуст: клиентский пароль не используется.
  */
 export const ADMIN = {
-  pin: 'rhythm',
   ids: [],
 };
 
