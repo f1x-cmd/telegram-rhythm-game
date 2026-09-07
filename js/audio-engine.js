@@ -243,14 +243,6 @@ export class AudioEngine {
     this._pausedSong = null;
   }
 
-  pause() {
-    if (this.ctx?.state === 'running') this.ctx.suspend();
-  }
-
-  resume() {
-    if (this.ctx?.state === 'suspended') this.ctx.resume();
-  }
-
   /** Обновление полос спектра для визуала. */
   sampleSpectrum() {
     if (!this.analyser || !this.spectrum) return this.bands;

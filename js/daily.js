@@ -107,10 +107,6 @@ export function addResult(stats) {
   return { ...status(), justCompleted: state.done && !wasDone };
 }
 
-export function dailyPool() {
-  return pool();
-}
-
 /** Админка: сменить сегодняшнее задание и обнулить прогресс. */
 export function adminSetGoal(id) {
   const goals = pool();

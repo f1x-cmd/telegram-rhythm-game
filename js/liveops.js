@@ -30,7 +30,14 @@ const DEFAULTS = {
   telegramApp: 'rhythm',
   forceDaily: '',
   dailyTargets: { notes: 220, score: 120000, combo: 60, perfect: 120, flow: 3 },
-  nps: { easy: 2, medium: 3.4, hard: 6, relax: 1.5 },
+  // Заводские значения обязаны совпадать с config.js: иначе первое же
+  // сохранение «Баланса» в админке молча взвинчивает плотность нот.
+  nps: {
+    easy: DRIVE_DIFFICULTY.easy.nps,
+    medium: DRIVE_DIFFICULTY.medium.nps,
+    hard: DRIVE_DIFFICULTY.hard.nps,
+    relax: RELAX.nps,
+  },
   shieldTime: 15,
   shieldMisses: 3,
   bans: [],
@@ -57,12 +64,13 @@ function applyRuntime() {
   DONATE.url = state.donateUrl || '';
   DONATE.bot = state.donateBot || '';
 
-  if (customNps) {
-    DRIVE_DIFFICULTY.easy.nps = Number(state.nps.easy) || DRIVE_DIFFICULTY.easy.nps;
-    DRIVE_DIFFICULTY.medium.nps = Number(state.nps.medium) || DRIVE_DIFFICULTY.medium.nps;
-    DRIVE_DIFFICULTY.hard.nps = Number(state.nps.hard) || DRIVE_DIFFICULTY.hard.nps;
-    RELAX.nps = Number(state.nps.relax) || RELAX.nps;
-  }
+  // Пишем плотность нот всегда: иначе «Сброс» в админке снимал бы флаг,
+  // но оставлял в DRIVE_DIFFICULTY прошлые значения до перезагрузки.
+  const nps = customNps ? state.nps : DEFAULTS.nps;
+  DRIVE_DIFFICULTY.easy.nps = Number(nps.easy) || DEFAULTS.nps.easy;
+  DRIVE_DIFFICULTY.medium.nps = Number(nps.medium) || DEFAULTS.nps.medium;
+  DRIVE_DIFFICULTY.hard.nps = Number(nps.hard) || DEFAULTS.nps.hard;
+  RELAX.nps = Number(nps.relax) || DEFAULTS.nps.relax;
 
   // щит — экспортированные константы нельзя переприсвоить снаружи модуля,
   // поэтому читаем через getters ниже; здесь только нормализуем числа
@@ -91,10 +99,12 @@ export async function loadLiveOps(options = {}) {
           donatePacks: Array.isArray(parsed.donatePacks) ? parsed.donatePacks : [...DEFAULTS.donatePacks],
           audit: Array.isArray(parsed.audit) ? parsed.audit.slice(-80) : [],
         };
-        customNps = Boolean(parsed.nps) && !(
-          Number(parsed.nps.easy) === 2
-          && Number(parsed.nps.medium) === 3.4
-          && Number(parsed.nps.hard) === 6
+        // Сохранённая карта NPS считается «своей» только если хоть одно
+        // значение отличается от заводского — сравниваем с DEFAULTS, а не с
+        // числами, которые давно разъехались с config.js.
+        customNps = Boolean(parsed.nps) && Object.keys(DEFAULTS.nps).some(
+          (key) => parsed.nps[key] !== undefined
+            && Number(parsed.nps[key]) !== DEFAULTS.nps[key],
         );
       }
     } catch (_) { /* битый JSON — заводские значения */ }
@@ -143,10 +153,6 @@ export function activeTracks() {
 /** Официальные треки, подходящие режиму RELAX / DRIVE. */
 export function tracksForMode(modeId) {
   return activeTracks().filter((track) => track.mood === 'both' || track.mood === modeId);
-}
-
-export function isTrackOn(id) {
-  return !(state.disabledTracks || []).includes(id);
 }
 
 export function scoreMultiplier() {

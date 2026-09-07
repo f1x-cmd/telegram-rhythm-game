@@ -402,7 +402,9 @@ export class Ui {
       if (!button) return;
       const stars = Number(button.dataset.stars);
       const result = openDonate(stars, donateRuntime());
-      this.showToast(t(result === 'copy' ? 'profile.donateThanks' : 'profile.donateThanks'));
+      // 'copy' — инвойса и ссылки нет, в буфер лёг только номинал:
+      // благодарить не за что, честнее сказать «скопировано».
+      this.showToast(t(result === 'copy' ? 'profile.copied' : 'profile.donateThanks'));
       this.handlers.onDonate?.(stars, result);
     });
 
@@ -450,7 +452,10 @@ export class Ui {
       this.el.dailyFill.style.width = `${Math.round(state.daily.ratio * 100)}%`;
     }
 
+    const modeChanged = this._lastMenuMode !== undefined && this._lastMenuMode !== state.mode;
+    this._lastMenuMode = state.mode;
     this.el.difficultyRow.classList.toggle('hidden', state.mode !== 'drive');
+    if (modeChanged) this._revealDock();
     if (this.el.diffHint) {
       this.el.diffHint.textContent = state.mode === 'drive' ? t(`diff.${state.difficulty}.hint`) : '';
     }
@@ -526,10 +531,36 @@ export class Ui {
     if (this.el.customHint) {
       this.el.customHint.classList.toggle('hidden', !state.customFile);
     }
+    // Пока не заданы ни инвойсы Stars, ни запасная ссылка, нажатие на пакет
+    // только копирует номинал в буфер. Показывать такую кнопку — обманывать.
+    const donate = donateRuntime();
+    const canDonate = Boolean(
+      Object.keys(donate.invoices || {}).length || donate.url || donate.bot,
+    );
     const donateBar = document.querySelector('.donate-bar');
-    if (donateBar) donateBar.classList.toggle('hidden', ops.allowDonate === false);
+    if (donateBar) donateBar.classList.toggle('hidden', ops.allowDonate === false || !canDonate);
     const inviteBtn = this.el.inviteBtn;
     if (inviteBtn) inviteBtn.disabled = false;
+  }
+
+  /**
+   * DRIVE добавляет ряд сложности, и на невысоких экранах кнопка «Играть»
+   * уезжает под нижнюю навигацию. После смены режима подтягиваем док в вид.
+   */
+  _revealDock() {
+    const menu = this.el.screens.menu;
+    const dock = menu?.querySelector('.menu-dock');
+    if (!dock) return;
+    const target = menu.scrollHeight - menu.clientHeight;
+    if (target <= 0) return;
+
+    menu.scrollTo({ top: target, behavior: 'smooth' });
+    // Плавная прокрутка молча не срабатывает, пока страница не рисуется
+    // (Mini App в фоне). Дожимаем позицию, если анимация не стартовала.
+    window.clearTimeout(this._dockScrollAt);
+    this._dockScrollAt = window.setTimeout(() => {
+      if (menu.scrollTop < target - 1) menu.scrollTop = target;
+    }, 400);
   }
 
   _offsetLabel(ms) {

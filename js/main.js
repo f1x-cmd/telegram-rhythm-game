@@ -357,21 +357,38 @@ class Game {
     this.canvas.height = Math.round(this.height * this.dpr);
   }
 
-  _nextFrame() {
-    return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+  /**
+   * Кадр отрисовки, но не дольше `timeout`: в свёрнутой вкладке
+   * requestAnimationFrame не срабатывает, и без страховки экран загрузки
+   * висел бы вечно — выйти из него нечем, пауза в этом состоянии молчит.
+   */
+  _nextFrame(timeout = 400) {
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        resolve();
+      };
+      requestAnimationFrame(finish);
+      setTimeout(finish, timeout);
+    });
+  }
+
+  /** Ожидание с потолком: `null`, если промис не успел. */
+  _withTimeout(promise, ms) {
+    return Promise.race([
+      promise,
+      new Promise((resolve) => setTimeout(() => resolve(null), ms)),
+    ]);
   }
 
   // ── Запуск партии ────────────────────────────────────────────────────────
 
   async start() {
     if (this.state === 'loading') return;
-    const unlock = this.audio.init();
-    if (this._ready) {
-      await Promise.race([
-        this._ready,
-        new Promise((resolve) => setTimeout(resolve, 280)),
-      ]);
-    }
+    const unlock = this.audio.init().catch(() => null);
+    if (this._ready) await this._withTimeout(this._ready, 280);
 
     if (isBanned(me().id)) {
       this.ui.showError(t('ops.banned'));
@@ -408,7 +425,9 @@ class Game {
       this.ui.setLoading(t('load.track'));
       await this._nextFrame();
 
-      await unlock;
+      // На iOS ctx.resume() без жеста может не разрешиться никогда —
+      // ждём ограниченно, дальше решает состояние контекста.
+      await this._withTimeout(unlock, 1200);
       if (this.customFile) await this.audio.loadFile(this.customFile);
       else if (track) await this.audio.loadUrl(track.url);
       else throw new Error(t('ops.noTracks'));
@@ -586,7 +605,10 @@ class Game {
     this.ui.showResult(stats, {
       modeTitle: mode.title,
       accent: mode.accent,
-      trackTitle: this.customFile ? this.customFile.name.replace(/\.[^.]+$/, '') : track.title,
+      // track может отсутствовать, если каталог опустел прямо во время партии
+      trackTitle: this.customFile
+        ? this.customFile.name.replace(/\.[^.]+$/, '')
+        : (track?.title ?? this.trackId),
       record,
       daily,
     });

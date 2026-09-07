@@ -5,9 +5,6 @@
 
 import { OFFICE, OFFICE_PROPS, OFFICE_BOMB, OFFICE_BONUS } from './config.js';
 
-/** @deprecated */
-export const fruitPosition = officePosition;
-
 export function officePosition(note, now, audio, width, height) {
   const launch = audio.toAudioTime(note.time);
   const elapsed = now - launch;
@@ -32,9 +29,6 @@ export function officeHitRadius(note, width) {
   return officeRadius(note, width) * (OFFICE.hitPad ?? 1.55);
 }
 
-/** @deprecated */
-export const fruitRadius = officeRadius;
-
 export function officeProp(note) {
   if (note.type === 'avoid') return OFFICE_BOMB;
   if (note.type === 'golden') return OFFICE_BONUS;
@@ -43,10 +37,7 @@ export function officeProp(note) {
   return OFFICE_PROPS[idx];
 }
 
-/** @deprecated */
-export const fruitKind = officeProp;
-
-export function segmentHitsCircle(x1, y1, x2, y2, cx, cy, r) {
+function segmentHitsCircle(x1, y1, x2, y2, cx, cy, r) {
   const dx = x2 - x1;
   const dy = y2 - y1;
   const lenSq = dx * dx + dy * dy;

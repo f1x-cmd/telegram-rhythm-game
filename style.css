@@ -6,6 +6,9 @@
 }
 
 :root {
+  /* Высота нижней навигации: меню и кабинет обязаны оставить под неё место,
+     иначе липкий док заезжает на настройки. */
+  --nav-h: 72px;
   --accent: #6FE9FF;
   --bg: #08080f;
   --panel: #14141f;
@@ -52,25 +55,26 @@ body[data-mode='relax'] { --accent: #7EC8E3; }
 
 /* ===== Меню ===== */
 #menu {
-  gap: 16px;
-  padding: max(20px, env(safe-area-inset-top)) 20px calc(12px + env(safe-area-inset-bottom));
+  gap: 12px;
+  padding: max(20px, env(safe-area-inset-top)) 20px calc(var(--nav-h) + 12px + env(safe-area-inset-bottom));
   overflow-y: auto;
-  scroll-padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  scroll-padding-bottom: calc(var(--nav-h) + 12px + env(safe-area-inset-bottom));
   background:
     radial-gradient(120% 60% at 50% 0%, color-mix(in srgb, var(--accent) 18%, transparent) 0%, transparent 60%),
     linear-gradient(180deg, #10101c 0%, #08080f 100%);
   transition: background 0.4s;
 }
 
+/* Док остаётся в потоке: `position: sticky` у последнего элемента
+   прокрутки подтягивает его вверх и накрывает блок настроек, до которого
+   тогда физически не дотянуться. `margin-top: auto` и так прижимает док
+   к низу, пока меню помещается на экран. */
 .menu-dock {
-  position: sticky;
-  bottom: calc(72px + env(safe-area-inset-bottom));
-  z-index: 32;
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin-top: auto;
-  padding: 14px 0 6px;
+  padding: 10px 0 2px;
   background: linear-gradient(180deg, transparent 0%, #08080f 22%, #08080f 100%);
 }
 
@@ -81,7 +85,7 @@ body[data-mode='relax'] { --accent: #7EC8E3; }
 .menu-header { text-align: center; }
 
 .menu-header h1 {
-  font-size: 2.2rem;
+  font-size: 2rem;
   font-weight: 800;
   letter-spacing: 0.24em;
   background: linear-gradient(90deg, #6FE9FF, #FF007A);
@@ -617,6 +621,10 @@ body[data-library='open'] { overflow: hidden; }
   text-align: center;
 }
 
+/* Пустая строка ошибки не должна отъедать высоту меню */
+.menu-error:empty,
+.play-meta:empty { display: none; }
+
 /* Кнопки */
 .primary-btn {
   padding: 17px;
@@ -893,7 +901,6 @@ body[data-library='open'] { overflow: hidden; }
   background: linear-gradient(90deg, #7EC8E3, #C4A8FF);
 }
 
-.back-btn,
 .pause-btn {
   position: absolute;
   top: calc(env(safe-area-inset-top) + 8px);
@@ -909,17 +916,13 @@ body[data-library='open'] { overflow: hidden; }
   font-weight: 800;
   letter-spacing: 0.08em;
   cursor: pointer;
+  display: grid;
+  place-items: center;
 }
 
-[dir='rtl'] .back-btn,
 [dir='rtl'] .pause-btn {
   right: auto;
   left: 10px;
-}
-
-.pause-btn {
-  display: grid;
-  place-items: center;
 }
 
 .pause-bars {
@@ -1201,7 +1204,7 @@ body[data-screen='result'] #toast {
 /* ===== Кабинет ===== */
 #profile-screen {
   gap: 14px;
-  padding: max(16px, env(safe-area-inset-top)) 16px calc(88px + env(safe-area-inset-bottom));
+  padding: max(16px, env(safe-area-inset-top)) 16px calc(var(--nav-h) + 16px + env(safe-area-inset-bottom));
   overflow-y: auto;
   background:
     radial-gradient(120% 50% at 50% 0%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 58%),

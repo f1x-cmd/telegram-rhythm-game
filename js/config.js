@@ -69,15 +69,10 @@ export const OFFICE = {
   radius: 0.119,
   goldenRadius: 0.146,
   hitPad: 1.22,
-  sliceMinPx: 1,
   bladeLife: 0.42,
-  helpRadius: 1.4,
   dustAmount: 0.52,
   dustDecay: 0.32,
 };
-
-/** @deprecated alias */
-export const FRUIT = OFFICE;
 
 /** Офисный реквизит: то, что хочется разрезать после рабочего дня. */
 export const OFFICE_PROPS = [
@@ -95,9 +90,6 @@ export const OFFICE_PROPS = [
 
 export const OFFICE_BOMB = { id: 20, color: '#1a1a1a', accent: '#FF4D2E', debris: '#AA8866', icon: 'bomb' };
 export const OFFICE_BONUS = { id: 21, color: '#FFD166', accent: '#FFF8DC', debris: '#FFF0A8', icon: 'bonus' };
-
-/** @deprecated */
-export const FRUIT_KINDS = OFFICE_PROPS;
 
 /** Нота-«долбилка» в DRIVE: серия быстрых тапов по дорожке. */
 export const MASH = { taps: 5, window: 0.75 };

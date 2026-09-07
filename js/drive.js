@@ -870,6 +870,7 @@ export class DriveMode {
   _drawPads(ctx, w, h, laneWidth, hitY, now) {
     const padH = h * 0.072;
     const padW = laneWidth * 0.82;
+    const padColor = this.feverActive ? COLORS.fever : COLORS.tap;
 
     for (let i = 0; i < LANES; i++) {
       const cx = i * laneWidth + laneWidth / 2;
@@ -885,7 +886,6 @@ export class DriveMode {
       }
 
       const baseAlpha = 0.07 + pulse * 0.18;
-      const padColor = this.feverActive ? COLORS.fever : COLORS.tap;
       ctx.fillStyle = pressed ? `rgba(255, 77, 46, 0.34)` : `rgba(255, 77, 46, ${baseAlpha})`;
       ctx.strokeStyle = pressed || pulse > 0.4
         ? `rgba(255, 209, 102, ${0.55 + pulse * 0.35})`

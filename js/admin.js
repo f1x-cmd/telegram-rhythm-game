@@ -3,7 +3,10 @@
  * и сохранения конфига, а не для синхронизации нот с музыкой.
  */
 
-import { ADMIN, TRACKS, leagueFor, titleFor, skillRating } from './config.js';
+import {
+  ADMIN, TRACKS, DRIVE_DIFFICULTY, RELAX, SHIELD_TIME, SHIELD_MISSES,
+  leagueFor, titleFor, skillRating,
+} from './config.js';
 import { initTelegram, getUser } from './telegram.js';
 import {
   loadLiveOps, liveops, saveLiveOps, resetLiveOps,
@@ -19,6 +22,15 @@ import { loadLanguage } from './i18n.js';
 const SESSION = 'rhythm_ops_tg_v2';
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
+
+/**
+ * Экранирование для innerHTML. В таблицы попадают строки, которые панель не
+ * контролирует: ID из поля бана, имена и полезная нагрузка событий из сети
+ * инвайтов, ключи рекордов. Одна кавычка ломала бы разметку и кнопку «Снять».
+ */
+const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => (
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]
+));
 
 const VIEWS = {
   overview: ['Обзор', 'Метрики этого устройства и сети инвайтов — не глобальный DAU'],
@@ -37,6 +49,14 @@ const GOAL_LABELS = {
   combo: 'Комбо',
   perfect: 'PERFECT',
   flow: 'Поток',
+};
+
+/** Заводская плотность нот — снимок config.js до правок LiveOps. */
+const BASE_NPS = {
+  relax: RELAX.nps,
+  easy: DRIVE_DIFFICULTY.easy.nps,
+  medium: DRIVE_DIFFICULTY.medium.nps,
+  hard: DRIVE_DIFFICULTY.hard.nps,
 };
 
 let dirty = false;
@@ -116,7 +136,7 @@ function fillTracks(ops) {
   $('#track-toggles').innerHTML = TRACKS.map((track) => `
     <label class="toggle">
       <input type="checkbox" data-track="${track.id}" ${hidden.has(track.id) ? '' : 'checked'}>
-      <span>${track.title} <small>(${track.id})</small></span>
+      <span>${esc(track.title)} <small>(${esc(track.id)})</small></span>
     </label>
   `).join('');
 }
@@ -133,7 +153,7 @@ function fillDailyTargets(ops) {
 function fillBans(ops) {
   const bans = ops.bans || [];
   $('#ban-list').innerHTML = bans.length
-    ? bans.map((id) => `<li class="row"><span>${id}</span><button type="button" class="ghost" data-unban="${id}">Снять</button></li>`).join('')
+    ? bans.map((id) => `<li class="row"><span>${esc(id)}</span><button type="button" class="ghost" data-unban="${esc(id)}">Снять</button></li>`).join('')
     : '<li class="muted">Ограничений нет</li>';
 }
 
@@ -153,12 +173,12 @@ function fillForm(ops) {
   $('#donateUrl').value = ops.donateUrl || '';
   $('#donateBot').value = ops.donateBot || '';
   $('#forceDaily').value = ops.forceDaily || '';
-  $('#npsRelax').value = ops.nps?.relax ?? 1.5;
-  $('#npsEasy').value = ops.nps?.easy ?? 2;
-  $('#npsMedium').value = ops.nps?.medium ?? 3.4;
-  $('#npsHard').value = ops.nps?.hard ?? 6;
-  $('#shieldTime').value = ops.shieldTime ?? 15;
-  $('#shieldMisses').value = ops.shieldMisses ?? 3;
+  $('#npsRelax').value = ops.nps?.relax ?? BASE_NPS.relax;
+  $('#npsEasy').value = ops.nps?.easy ?? BASE_NPS.easy;
+  $('#npsMedium').value = ops.nps?.medium ?? BASE_NPS.medium;
+  $('#npsHard').value = ops.nps?.hard ?? BASE_NPS.hard;
+  $('#shieldTime').value = ops.shieldTime ?? SHIELD_TIME;
+  $('#shieldMisses').value = ops.shieldMisses ?? SHIELD_MISSES;
   fillTracks(ops);
   fillDailyTargets(ops);
   fillBans(ops);
@@ -190,10 +210,10 @@ function collectPatch() {
     forceDaily: $('#forceDaily').value,
     dailyTargets,
     nps: {
-      relax: Number($('#npsRelax').value) || 1.5,
-      easy: Number($('#npsEasy').value) || 2,
-      medium: Number($('#npsMedium').value) || 3.4,
-      hard: Number($('#npsHard').value) || 6,
+      relax: Number($('#npsRelax').value) || BASE_NPS.relax,
+      easy: Number($('#npsEasy').value) || BASE_NPS.easy,
+      medium: Number($('#npsMedium').value) || BASE_NPS.medium,
+      hard: Number($('#npsHard').value) || BASE_NPS.hard,
     },
     shieldTime: Math.max(0, Number($('#shieldTime').value) || 0),
     shieldMisses: Math.max(0, Number($('#shieldMisses').value) || 0),
@@ -212,7 +232,7 @@ function bars(map, empty) {
     .slice(0, 10)
     .map(([label, n]) => `
       <div class="bar-row">
-        <span>${label}</span>
+        <span>${esc(label)}</span>
         <div class="bar-track"><i style="width:${Math.round((n / max) * 100)}%"></i></div>
         <b>${fmt(n)}</b>
       </div>
@@ -242,9 +262,9 @@ function renderOverview() {
 
   $('#prod-dl').innerHTML = [
     ['Статус', ops.maintenance ? 'ТЕХРАБОТЫ' : 'LIVE'],
-    ['Баннер', ops.banner || '—'],
-    ['Ивент', ops.eventName ? `${ops.eventName} ×${event}` : `множитель ×${event}`],
-    ['Режим меню', ops.featuredMode || 'как у игрока'],
+    ['Баннер', esc(ops.banner || '—')],
+    ['Ивент', ops.eventName ? `${esc(ops.eventName)} ×${event}` : `множитель ×${event}`],
+    ['Режим меню', esc(ops.featuredMode || 'как у игрока')],
     ['Треки', `${on} из ${TRACKS.length}`],
     ['Загрузка MP3', ops.allowUpload === false ? 'выкл' : 'вкл'],
     ['Донат', ops.allowDonate === false ? 'скрыт' : 'в кабинете'],
@@ -261,9 +281,9 @@ function renderPlayers() {
   const title = titleFor(stats.totalScore);
 
   $('#me-dl').innerHTML = [
-    ['Имя', player.name],
-    ['ID', player.id],
-    ['Telegram', player.username || '—'],
+    ['Имя', esc(player.name)],
+    ['ID', esc(player.id)],
+    ['Telegram', esc(player.username || '—')],
     ['Лига / титул', `${league.id} / ${title.id}`],
     ['Рейтинг', fmt(skillRating(stats))],
     ['Всего очков', fmt(stats.totalScore)],
@@ -280,12 +300,12 @@ function renderPlayers() {
   }
   const rows = [...seen.values()].sort((a, b) => (b.score || 0) - (a.score || 0));
   $('#network-body').innerHTML = rows.length
-    ? rows.map((row, i) => `<tr><td>${i + 1}</td><td>${row.name || '—'}</td><td>${row.id}</td><td>${fmt(row.score)}</td></tr>`).join('')
+    ? rows.map((row, i) => `<tr><td>${i + 1}</td><td>${esc(row.name || '—')}</td><td>${esc(row.id)}</td><td>${fmt(row.score)}</td></tr>`).join('')
     : '<tr><td colspan="4">Сеть пуста — инвайты ещё не приходили</td></tr>';
 
   const records = Object.entries(allRecords());
   $('#records-body').innerHTML = records.length
-    ? records.sort((a, b) => b[1] - a[1]).map(([key, score]) => `<tr><td>${key}</td><td>${fmt(score)}</td></tr>`).join('')
+    ? records.sort((a, b) => b[1] - a[1]).map(([key, score]) => `<tr><td>${esc(key)}</td><td>${fmt(score)}</td></tr>`).join('')
     : '<tr><td colspan="2">Рекордов нет</td></tr>';
 }
 
@@ -294,13 +314,13 @@ function renderLogs() {
   $('#tel-body').innerHTML = events.length
     ? events.map((ev) => {
       const { at, type, ...rest } = ev;
-      return `<tr><td>${fmtTime(at)}</td><td>${type}</td><td>${JSON.stringify(rest)}</td></tr>`;
+      return `<tr><td>${fmtTime(at)}</td><td>${esc(type)}</td><td>${esc(JSON.stringify(rest))}</td></tr>`;
     }).join('')
     : '<tr><td colspan="3">Журнал пуст</td></tr>';
 
   const audit = liveops().audit || [];
   $('#audit-body').innerHTML = audit.length
-    ? audit.map((row) => `<tr><td>${fmtTime(row.at)}</td><td>${row.who}</td><td>${row.note}</td></tr>`).join('')
+    ? audit.map((row) => `<tr><td>${fmtTime(row.at)}</td><td>${esc(row.who)}</td><td>${esc(row.note)}</td></tr>`).join('')
     : '<tr><td colspan="3">Изменений конфига ещё не было</td></tr>';
 }
 
@@ -465,6 +485,15 @@ function bind() {
       e.preventDefault();
       if (!$('#shell').classList.contains('hidden')) save('save shortcut');
     }
+  });
+
+  // Флаг «есть несохранённое» рисовал точку у кнопки, но уходу со страницы
+  // не мешал: правки конфига терялись молча.
+  window.addEventListener('beforeunload', (e) => {
+    if (!dirty) return undefined;
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
   });
 }
 
