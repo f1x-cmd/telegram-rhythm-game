@@ -2205,6 +2205,56 @@ for (const [lang, extra] of Object.entries(GAPS)) {
   }
 }
 
+/**
+ * Выкрики DRIVE при удачном разрезе.
+ *
+ * Одна и та же надпись на каждый предмет быстро перестаёт читаться и не держит
+ * тему: смысл режима — сорвать злость на офисной работе, а не выбить оценку.
+ * Поэтому фразы разные и говорят ровно об этом.
+ *
+ * Оценки жанра (PERFECT+, MISS, FEVER) сюда не входят — они остаются
+ * терминологией и не переводятся, см. шапку файла.
+ */
+const RAGE = {
+  en: [
+    'FOR THE OVERTIME!', 'MEETING CANCELLED!', 'OUT OF OFFICE!',
+    'NOT MY TICKET!', 'NO MORE CALLS!', 'PTO APPROVED!',
+    'REPLY ALL, HUH?', 'STRAIGHT TO ARCHIVE!', 'DEADLINE MY FOOT!',
+    'THAT IS A NO!',
+  ],
+  ru: [
+    'ЗА ПЕРЕРАБОТКИ!', 'ЭТО ЗА ДЕДЛАЙН!', 'СОВЕЩАНИЕ ОТМЕНЕНО!',
+    'Я НЕ НА СВЯЗИ!', 'ЗА ПРАВКИ В ПЯТНИЦУ!', 'НЕ МОЯ ЗАДАЧА!',
+    'ОТПУСК ОДОБРЕН!', 'БЕЗ СОГЛАСОВАНИЙ!', 'ЗА «СОЗВОНИМСЯ»!',
+    'В АРХИВ!',
+  ],
+  uk: ['ЗА ПЕРЕПРАЦЮВАННЯ!', 'НАРАДУ СКАСОВАНО!', 'НЕ МОЯ ЗАДАЧА!', 'Я НЕ НА ЗВ’ЯЗКУ!'],
+  es: ['¡POR LAS HORAS EXTRA!', '¡REUNIÓN CANCELADA!', '¡NO ES MI TAREA!', '¡FUERA DE OFICINA!'],
+  pt: ['PELAS HORAS EXTRAS!', 'REUNIÃO CANCELADA!', 'NÃO É MINHA TAREFA!', 'FORA DO EXPEDIENTE!'],
+  de: ['FÜR DIE ÜBERSTUNDEN!', 'MEETING ABGESAGT!', 'NICHT MEIN TICKET!', 'FEIERABEND!'],
+  fr: ['POUR LES HEURES SUP !', 'RÉUNION ANNULÉE !', 'PAS MON TICKET !', 'JE SUIS ABSENT !'],
+  it: ['PER GLI STRAORDINARI!', 'RIUNIONE ANNULLATA!', 'NON È COMPITO MIO!', 'FUORI SEDE!'],
+  pl: ['ZA NADGODZINY!', 'SPOTKANIE ODWOŁANE!', 'TO NIE MOJE ZADANIE!', 'JESTEM NA URLOPIE!'],
+  tr: ['FAZLA MESAİ İÇİN!', 'TOPLANTI İPTAL!', 'BENİM İŞİM DEĞİL!', 'İZİNDEYİM!'],
+  id: ['BUAT LEMBURNYA!', 'RAPAT DIBATALKAN!', 'BUKAN TUGASKU!', 'LAGI CUTI!'],
+  hi: ['ओवरटाइम के लिए!', 'मीटिंग रद्द!', 'मेरा काम नहीं!', 'छुट्टी पर हूँ!'],
+  ar: ['مقابل العمل الإضافي!', 'أُلغي الاجتماع!', 'ليست مهمتي!', 'في إجازة!'],
+  zh: ['这是加班的份！', '会议取消！', '不归我管！', '我休假了！'],
+};
+
+let lastRage = -1;
+
+/** Случайная фраза, но не та же самая два раза подряд — это читается как баг. */
+export function ragePhrase() {
+  const pool = RAGE[current]?.length ? RAGE[current] : RAGE[FALLBACK];
+  if (!pool?.length) return t('judgment.shred');
+  if (pool.length === 1) return pool[0];
+  let index = Math.floor(Math.random() * pool.length);
+  if (index === lastRage) index = (index + 1) % pool.length;
+  lastRage = index;
+  return pool[index];
+}
+
 /** 'pt-BR' → 'pt', 'zh-Hans-CN' → 'zh'; неизвестный код → null. */
 function normalize(code) {
   if (!code) return null;

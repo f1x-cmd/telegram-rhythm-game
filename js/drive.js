@@ -14,7 +14,7 @@ import {
 } from './fruit.js';
 import { drawOfficeIcon, drawOfficeBomb, drawSliceHint } from './office-art.js';
 import { haptic } from './telegram.js';
-import { t } from './i18n.js';
+import { t, ragePhrase } from './i18n.js';
 import { shieldConfig } from './liveops.js';
 
 export class DriveMode {
@@ -1181,7 +1181,11 @@ export class DriveMode {
       silentMissSound: true, skipHud: true,
     });
 
-    const label = note.type === 'golden' ? t('judgment.payday') : key === 'PERFECT_PLUS' ? t('judgment.shredPlus') : t('judgment.shred');
+    // Обычный разрез — самое частое событие в партии, поэтому фраза каждый раз
+    // новая. Бонус и идеальный разрез остаются узнаваемо своими.
+    const label = note.type === 'golden'
+      ? t('judgment.payday')
+      : key === 'PERFECT_PLUS' ? t('judgment.shredPlus') : ragePhrase();
     const cls = note.type === 'golden' ? 'mash' : key === 'PERFECT_PLUS' ? 'perfect-plus' : 'great';
     if (!options.skipHud) hud.showJudgment(label, cls);
     haptic(note.type === 'golden' ? 'heavy' : 'rigid');

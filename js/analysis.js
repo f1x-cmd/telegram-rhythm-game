@@ -9,6 +9,9 @@ import { fallPeakOffset } from './fruit.js';
 const FRAME = 2048;
 const HOP = 1024;
 
+/** Зазор между краем предмета и краем экрана, доли ширины. */
+const EDGE_PAD = 0.015;
+
 /** Детерминированный ГПСЧ, чтобы карта одного трека была стабильной. */
 function mulberry32(seed) {
   let a = seed >>> 0;
@@ -267,11 +270,11 @@ export function buildFruitChart(analysis, difficultyKey) {
     const current = picked[i];
     if (current.skip) continue;
 
-    const spawnX = 0.08 + random() * 0.84;
     const spawnY = OFFICE.spawnYTop.min + random() * (OFFICE.spawnYTop.max - OFFICE.spawnYTop.min);
-    const velX = (random() - 0.5) * OFFICE.driftX;
     const velY = fallVy.min + random() * (fallVy.max - fallVy.min);
     const peakOffset = fallPeakOffset(spawnY, velY, gravity);
+    let spawnX = random();
+    let velX = (random() - 0.5) * OFFICE.driftX;
 
     let type = 'fruit';
     let fruitKind = Math.floor(random() * OFFICE_PROPS.length);
@@ -286,6 +289,18 @@ export function buildFruitChart(analysis, difficultyKey) {
     } else {
       bombCooldown--;
     }
+
+    // Предмет обязан целиком помещаться в кадр в тот момент, когда его режут.
+    // Иначе часть падает за краем экрана и промах засчитывается ни за что —
+    // на замерах так вылетал каждый пятый. Полосу спавна и боковой снос
+    // подрезаем по фактическому радиусу: у бонуса он заметно больше.
+    const radius = OFFICE.radius * sizeScale
+      * (type === 'golden' ? (OFFICE.goldenRadius / OFFICE.radius) * 1.1 : 1);
+    const minX = radius + EDGE_PAD;
+    const maxX = 1 - radius - EDGE_PAD;
+    spawnX = minX + spawnX * Math.max(0, maxX - minX);
+    velX = Math.max((minX - spawnX) / peakOffset,
+      Math.min((maxX - spawnX) / peakOffset, velX));
 
     notes.push({
       time: current.time,
