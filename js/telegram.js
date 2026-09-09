@@ -89,6 +89,16 @@ export function getStartParam() {
   return null;
 }
 
+/**
+ * Подписанная строка initData целиком — её проверяет сервер.
+ * Вне Telegram пусто: значит, записать результат в общую таблицу нельзя,
+ * и клиент даже не пытается.
+ */
+export function getInitData() {
+  const raw = (tg ?? sdk)?.initData;
+  return typeof raw === 'string' && raw ? raw : '';
+}
+
 /** Код языка из настроек Telegram, например 'ru' или 'pt-br'. */
 export function getLanguage() {
   // initDataUnsafe — обычные данные, читаем их даже если platform === 'unknown'

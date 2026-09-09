@@ -18,6 +18,7 @@ import { loadRecords, allRecords } from './records.js';
 import { loadSocial, me, socialDump } from './social.js';
 import { loadDaily, status as dailyStatus, adminSetGoal } from './daily.js';
 import { loadLanguage } from './i18n.js';
+import { fetchStats } from './backend.js';
 
 const SESSION = 'rhythm_ops_tg_v2';
 const $ = (sel) => document.querySelector(sel);
@@ -273,6 +274,54 @@ function renderOverview() {
   ].map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
 }
 
+/**
+ * Сводка с сервера — единственные цифры по всем игрокам.
+ * Пока бэкенда нет, честно об этом пишем, а не показываем нули.
+ */
+async function renderNetwork() {
+  const note = $('#net-note');
+  const dl = $('#net-dl');
+  const bars = $('#net-bars');
+  if (!note || !dl) return;
+
+  const stats = await fetchStats();
+  if (!stats) {
+    note.textContent = 'Сервер не отвечает или ещё не настроен: нет хранилища, токена бота или вашего ID в ADMIN_IDS. Ниже — только это устройство.';
+    dl.innerHTML = '';
+    if (bars) bars.innerHTML = '';
+    return;
+  }
+
+  note.textContent = 'Считает сервер по всем игрокам, а не по этому устройству.';
+  dl.innerHTML = [
+    ['Игроков всего', fmt(stats.players)],
+    ['Партий всего', fmt(stats.plays)],
+    ['Активных сегодня', fmt(stats.today)],
+    ['RELAX / DRIVE', `${fmt(stats.byMode.relax)} / ${fmt(stats.byMode.drive)}`],
+    ['Дошли / провалили', `${fmt(stats.cleared)} / ${fmt(stats.failed)}`],
+  ].map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
+
+  if (bars) {
+    // Дни идут от свежего к старому — для графика разворачиваем
+    const dau = Object.fromEntries(Object.entries(stats.dau || {}).reverse());
+    bars.innerHTML = bars2(dau, 'Активности пока не было');
+  }
+}
+
+/** Как bars(), но не срезает до 10 значений: дней ровно 14. */
+function bars2(map, empty) {
+  const entries = Object.entries(map || {});
+  if (!entries.length || entries.every(([, n]) => !n)) return `<p class="muted">${esc(empty)}</p>`;
+  const max = Math.max(...entries.map(([, n]) => n), 1);
+  return entries.map(([label, n]) => `
+    <div class="bar-row">
+      <span>${esc(label)}</span>
+      <div class="bar-track"><i style="width:${Math.round((n / max) * 100)}%"></i></div>
+      <b>${fmt(n)}</b>
+    </div>
+  `).join('');
+}
+
 function renderPlayers() {
   const stats = career();
   const player = me();
@@ -346,6 +395,8 @@ function refreshLivePill() {
 
 function refresh() {
   renderOverview();
+  // Не ждём сеть: остальная панель рисуется сразу
+  renderNetwork();
   renderPlayers();
   renderLogs();
   renderDailyNow();

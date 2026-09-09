@@ -630,7 +630,10 @@ export class Ui {
         ? t('profile.emptyClan')
         : t('profile.emptyGlobal');
 
-    this.el.boardHint.textContent = t('profile.networkHint');
+    // «Общий» с сервера — это весь мир; локальный — только связанные инвайтами
+    this.el.boardHint.textContent = (board === 'global' && pack?.remote)
+      ? t('profile.globalHint')
+      : t('profile.networkHint');
     this.el.boardList.innerHTML = rows.map((row) => `
       <li class="board-row${row.self ? ' self' : ''}">
         <span class="board-place">${row.place}</span>

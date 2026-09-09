@@ -1512,6 +1512,7 @@ Object.assign(DICT.en, {
   'ops.eventMult': 'Event · score ×{mult}',
   'ops.eventNamed': '{name} · score ×{mult}',
   'menu.customHint': 'Custom tracks are fun — personal records are not saved.',
+  'profile.globalHint': 'Every player, ranked by total score.',
 });
 Object.assign(DICT.ru, {
   'ops.maintenance': 'Короткий перерыв. Загляните чуть позже.',
@@ -1520,6 +1521,7 @@ Object.assign(DICT.ru, {
   'ops.eventMult': 'Ивент · очки ×{mult}',
   'ops.eventNamed': '{name} · очки ×{mult}',
   'menu.customHint': 'Свой трек — ок, но личные рекорды не сохраняются.',
+  'profile.globalHint': 'Все игроки, по сумме очков за всё время.',
 });
 
 const UX = {
@@ -1811,6 +1813,7 @@ for (const [lang, extra] of Object.entries(LIBRARY)) {
  */
 const GAPS = {
   uk: {
+    'profile.globalHint': 'Усі гравці, за сумою очок за весь час.',
     'diff.easy.hint': 'Ріж як хочеш · зелені бомби зносять усе довкола',
     'diff.medium.hint': 'Ріж по стрілках · сірі бомби здіймають пил',
     'diff.hard.hint': 'Ріж по стрілках будь-де · червоні бомби б’ють',
@@ -1841,6 +1844,7 @@ const GAPS = {
     'result.challenge': 'Виклик',
   },
   es: {
+    'profile.globalHint': 'Todos los jugadores, por puntos totales.',
     'diff.easy.hint': 'Corta libre · las bombas verdes despejan la pantalla',
     'diff.medium.hint': 'Corta siguiendo las flechas · las grises levantan polvo',
     'diff.hard.hint': 'Corta siguiendo las flechas · las rojas hacen daño',
@@ -1872,6 +1876,7 @@ const GAPS = {
     'profile.rating': 'Nivel',
   },
   pt: {
+    'profile.globalHint': 'Todos os jogadores, por pontos totais.',
     'diff.easy.hint': 'Corte livre · bombas verdes limpam a tela',
     'diff.medium.hint': 'Corte no sentido das setas · bombas cinzas levantam poeira',
     'diff.hard.hint': 'Corte no sentido das setas · bombas vermelhas machucam',
@@ -1903,6 +1908,7 @@ const GAPS = {
     'profile.rating': 'Nível',
   },
   de: {
+    'profile.globalHint': 'Alle Spieler, nach Gesamtpunktzahl.',
     'diff.easy.hint': 'Freier Schnitt · grüne Bomben räumen den Bildschirm',
     'diff.medium.hint': 'Entlang der Pfeile schneiden · graue Bomben stauben',
     'diff.hard.hint': 'Überall entlang der Pfeile · rote Bomben tun weh',
@@ -1936,6 +1942,7 @@ const GAPS = {
     'section.track': 'Titel',
   },
   fr: {
+    'profile.globalHint': 'Tous les joueurs, au score total.',
     'diff.easy.hint': 'Coupe libre · les bombes vertes nettoient l’écran',
     'diff.medium.hint': 'Coupez le long des flèches · les grises soulèvent la poussière',
     'diff.hard.hint': 'Suivez les flèches partout · les bombes rouges font mal',
@@ -1966,6 +1973,7 @@ const GAPS = {
     'result.challenge': 'Défi',
   },
   it: {
+    'profile.globalHint': 'Tutti i giocatori, per punteggio totale.',
     'diff.easy.hint': 'Taglio libero · le bombe verdi ripuliscono lo schermo',
     'diff.medium.hint': 'Taglia lungo le frecce · quelle grigie alzano polvere',
     'diff.hard.hint': 'Segui le frecce ovunque · le bombe rosse fanno male',
@@ -1997,6 +2005,7 @@ const GAPS = {
     'profile.rating': 'Valutazione',
   },
   pl: {
+    'profile.globalHint': 'Wszyscy gracze, według sumy punktów.',
     'diff.easy.hint': 'Tnij dowolnie · zielone bomby czyszczą ekran',
     'diff.medium.hint': 'Tnij wzdłuż strzałek · szare bomby wzbijają kurz',
     'diff.hard.hint': 'Tnij wzdłuż strzałek wszędzie · czerwone bomby bolą',
@@ -2028,6 +2037,7 @@ const GAPS = {
     'profile.rating': 'Ranking',
   },
   tr: {
+    'profile.globalHint': 'Tüm oyuncular, toplam puana göre.',
     'diff.easy.hint': 'Serbest kes · yeşil bombalar ekranı temizler',
     'diff.medium.hint': 'Okların yönünde kes · gri bombalar toz kaldırır',
     'diff.hard.hint': 'Her yerde okların yönünde kes · kırmızı bombalar zarar verir',
@@ -2058,6 +2068,7 @@ const GAPS = {
     'result.challenge': 'Meydan oku',
   },
   id: {
+    'profile.globalHint': 'Semua pemain, berdasarkan total poin.',
     'diff.easy.hint': 'Tebas bebas · bom hijau membersihkan layar',
     'diff.medium.hint': 'Tebas searah panah · bom abu-abu membuat debu',
     'diff.hard.hint': 'Tebas searah panah di mana saja · bom merah menyakitkan',
@@ -2089,6 +2100,7 @@ const GAPS = {
     'profile.rating': 'Peringkat',
   },
   hi: {
+    'profile.globalHint': 'सभी खिलाड़ी, कुल अंकों के क्रम में।',
     'diff.easy.hint': 'जैसे चाहें काटें · हरे बम पूरी स्क्रीन साफ़ करते हैं',
     'diff.medium.hint': 'तीर की दिशा में काटें · स्लेटी बम धूल उड़ाते हैं',
     'diff.hard.hint': 'कहीं भी तीर की दिशा में काटें · लाल बम नुक़सान करते हैं',
@@ -2119,6 +2131,7 @@ const GAPS = {
     'result.challenge': 'चुनौती',
   },
   ar: {
+    'profile.globalHint': 'كل اللاعبين، بحسب مجموع النقاط.',
     'diff.easy.hint': 'اقطع كما تشاء · القنابل الخضراء تنظّف الشاشة',
     'diff.medium.hint': 'اقطع باتجاه السهم · القنابل الرمادية تثير الغبار',
     'diff.hard.hint': 'اقطع باتجاه السهم في أي مكان · القنابل الحمراء تؤذي',
@@ -2149,6 +2162,7 @@ const GAPS = {
     'result.challenge': 'تحدٍّ',
   },
   zh: {
+    'profile.globalHint': '所有玩家，按总分排名。',
     'diff.easy.hint': '随意切 · 绿色炸弹会清空整屏',
     'diff.medium.hint': '沿箭头方向切 · 灰色炸弹会扬尘',
     'diff.hard.hint': '任意位置沿箭头切 · 红色炸弹会掉血',

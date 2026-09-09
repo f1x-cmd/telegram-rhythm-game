@@ -25,6 +25,7 @@ import {
   loadLiveOps, liveops, activeTracks, tracksForMode, scoreMultiplier, shieldConfig, isBanned,
 } from './liveops.js';
 import { loadTelemetry, logEvent } from './telemetry.js';
+import { submitRun, fetchBoard } from './backend.js';
 
 const OFFSET_KEY = 'audio_offset';
 const LAST_TRACK_KEY = 'last_track_v1';
@@ -239,8 +240,23 @@ class Game {
     if (board) this.board = board;
     if (this.state === 'playing' || this.state === 'loading') this.abort();
     this.state = 'profile';
-    this.ui.syncProfile(socialSnapshot(), this.board);
+    // Локальный снимок рисуем сразу: ждать сеть на открытии экрана нельзя
+    const snapshot = socialSnapshot();
+    this.ui.syncProfile(snapshot, this.board);
     this.ui.showScreen('profile');
+    this._loadGlobalBoard(snapshot);
+  }
+
+  /**
+   * Догружает общую таблицу с сервера и подменяет ею локальную.
+   * Молчит, если бэкенда нет: тогда «Общий» остаётся списком по инвайтам.
+   */
+  async _loadGlobalBoard(snapshot) {
+    const remote = await fetchBoard({ board: 'total', limit: 50 });
+    if (!remote || !remote.rows.length) return;
+    // Игрок мог уйти с экрана, пока шёл запрос
+    if (this.state !== 'profile') return;
+    this.ui.syncProfile({ ...snapshot, global: remote }, this.board);
   }
 
   _invite(kind) {
@@ -597,6 +613,16 @@ class Game {
       accuracy: stats.accuracy,
       failed: Boolean(stats.failed),
       mult,
+      durationSec: this._playStartedAt
+        ? Math.max(0, Math.round((Date.now() - this._playStartedAt) / 1000))
+        : 0,
+    });
+
+    // Общая таблица не должна задерживать экран результата: отправляем
+    // вдогонку, ошибки уже проглочены внутри модуля
+    submitRun(stats, {
+      track: this.customFile ? 'custom' : this.trackId,
+      difficulty: this.difficulty,
       durationSec: this._playStartedAt
         ? Math.max(0, Math.round((Date.now() - this._playStartedAt) / 1000))
         : 0,
