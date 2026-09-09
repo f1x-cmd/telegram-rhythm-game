@@ -204,18 +204,28 @@
       <!-- Игроки -->
       <section class="view" data-view="players">
         <article class="card">
+          <h3>Все игроки — сервер</h3>
+          <p class="muted" id="global-note">Загружаю таблицу…</p>
+          <table class="table">
+            <thead><tr><th>#</th><th>Игрок</th><th>Очки за всё время</th></tr></thead>
+            <tbody id="global-body"></tbody>
+          </table>
+        </article>
+        <article class="card">
           <h3>Этот аккаунт</h3>
+          <p class="muted">Карьера с этого устройства, а не из общей таблицы.</p>
           <dl id="me-dl" class="facts"></dl>
         </article>
         <article class="card">
-          <h3>Сеть (друзья / вызовы / клан)</h3>
+          <h3>Сеть по инвайтам — только это устройство</h3>
+          <p class="muted">Кто открыл ваши ссылки-приглашения. К таблице выше отношения не имеет.</p>
           <table class="table">
             <thead><tr><th>#</th><th>Игрок</th><th>ID</th><th>Очки</th></tr></thead>
             <tbody id="network-body"></tbody>
           </table>
         </article>
         <article class="card">
-          <h3>Рекорды</h3>
+          <h3>Рекорды — только это устройство</h3>
           <table class="table">
             <thead><tr><th>Ключ</th><th>Счёт</th></tr></thead>
             <tbody id="records-body"></tbody>

@@ -18,7 +18,7 @@ import { loadRecords, allRecords } from './records.js';
 import { loadSocial, me, socialDump } from './social.js';
 import { loadDaily, status as dailyStatus, adminSetGoal } from './daily.js';
 import { loadLanguage } from './i18n.js';
-import { fetchStats } from './backend.js';
+import { fetchStats, fetchBoard } from './backend.js';
 
 const SESSION = 'rhythm_ops_tg_v2';
 const $ = (sel) => document.querySelector(sel);
@@ -322,6 +322,38 @@ function bars2(map, empty) {
   `).join('');
 }
 
+/**
+ * Общая таблица с сервера. Живёт во вкладке «Игроки», потому что именно её
+ * там ищут: остальные блоки вкладки читают только это устройство, и по одним
+ * заголовкам это не угадывается.
+ */
+async function renderGlobalPlayers() {
+  const note = $('#global-note');
+  const body = $('#global-body');
+  if (!note || !body) return;
+
+  const board = await fetchBoard({ board: 'total', limit: 100 });
+  if (!board) {
+    note.textContent = 'Сервер не отвечает или ещё не настроен — общей таблицы нет.';
+    body.innerHTML = '<tr><td colspan="3">—</td></tr>';
+    return;
+  }
+  if (!board.rows.length) {
+    note.textContent = 'Пока никто не сыграл. Партии считаются только из Telegram.';
+    body.innerHTML = '<tr><td colspan="3">Таблица пуста</td></tr>';
+    return;
+  }
+
+  note.textContent = `Игроков в таблице: ${fmt(board.size)}. Сумму очков ведёт сервер.`;
+  body.innerHTML = board.rows.map((row) => `
+    <tr${row.self ? ' class="self"' : ''}>
+      <td>${row.place}</td>
+      <td>${esc(row.name)}${row.self ? ' — вы' : ''}</td>
+      <td>${fmt(row.score)}</td>
+    </tr>
+  `).join('');
+}
+
 function renderPlayers() {
   const stats = career();
   const player = me();
@@ -397,6 +429,7 @@ function refresh() {
   renderOverview();
   // Не ждём сеть: остальная панель рисуется сразу
   renderNetwork();
+  renderGlobalPlayers();
   renderPlayers();
   renderLogs();
   renderDailyNow();
