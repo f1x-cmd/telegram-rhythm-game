@@ -325,7 +325,11 @@ class Game {
     const field = this.field;
     field.addEventListener('pointerdown', (event) => {
       if (this.state !== 'playing') return;
-      if (event.target.closest('button')) return;
+      // Пропускаем только настоящие оверлеи. Раньше сюда попадала и кнопка
+      // паузы: свайп, начатый в её углу, целиком терялся — ни одного разреза
+      // за весь жест — и вдобавок ставил игру на паузу. Кнопка теперь сама
+      // отличает нажатие от свайпа, см. ui.js.
+      if (event.target.closest('#pause-overlay, #loading')) return;
       event.preventDefault();
       this.audio.init();
       this.ui.dismissCoach(this.modeId, this.difficulty);

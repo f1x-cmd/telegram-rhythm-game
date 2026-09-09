@@ -366,7 +366,7 @@ export class Ui {
     });
 
     this.el.playBtn.addEventListener('click', () => this.handlers.onPlay());
-    this.el.pauseBtn.addEventListener('click', () => this.handlers.onPause());
+    this._bindPauseTap();
     this.el.resumeBtn.addEventListener('click', () => this.handlers.onResume());
     this.el.saveScoreBtn.addEventListener('click', () => this.handlers.onSaveScore());
     this.el.pauseMenuBtn?.addEventListener('click', () => this.handlers.onBack());
@@ -428,6 +428,40 @@ export class Ui {
       link.download = 'rhythm-game-score.jpg';
       link.click();
     });
+  }
+
+  /**
+   * Пауза срабатывает только на коротком осознанном нажатии.
+   *
+   * В Office Rage режут свайпом по всему экрану, и палец регулярно проходит
+   * через угол с кнопкой. Обычный click при этом честно срабатывал — игра
+   * вставала на паузу посреди партии.
+   */
+  _bindPauseTap() {
+    const button = this.el.pauseBtn;
+    if (!button) return;
+    let id = -1;
+    let x = 0;
+    let y = 0;
+    let at = 0;
+
+    button.addEventListener('pointerdown', (event) => {
+      id = event.pointerId;
+      x = event.clientX;
+      y = event.clientY;
+      at = event.timeStamp;
+    });
+
+    const finish = (event) => {
+      if (event.pointerId !== id) return;
+      id = -1;
+      const moved = Math.hypot(event.clientX - x, event.clientY - y);
+      // Порог по сдвигу и по времени: свайп либо уводит палец, либо длится
+      if (moved > 12 || event.timeStamp - at > 400) return;
+      this.handlers.onPause();
+    };
+    button.addEventListener('pointerup', finish);
+    button.addEventListener('pointercancel', () => { id = -1; });
   }
 
   syncMenu(state) {
