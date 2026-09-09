@@ -5,29 +5,59 @@
  * миллисекунды, а пул соединений не успевает переиспользоваться. REST-протокол
  * Upstash — это просто fetch, поэтому лишних подключений не остаётся.
  *
- * Переменные окружения ставит интеграция Vercel. Поддерживаем оба набора имён:
- * marketplace даёт KV_REST_API_*, прямая регистрация в Upstash — UPSTASH_*.
+ * Имена переменных зависят от префикса, выбранного при подключении
+ * интеграции, поэтому они подбираются, а не задаются жёстко — см. credentials().
  */
 
-const URL_ENV = ['KV_REST_API_URL', 'UPSTASH_REDIS_REST_URL'];
-const TOKEN_ENV = ['KV_REST_API_TOKEN', 'UPSTASH_REDIS_REST_TOKEN'];
+/** Пары имён, которые ставят известные интеграции. */
+const KNOWN = [
+  ['KV_REST_API_URL', 'KV_REST_API_TOKEN'],
+  ['UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'],
+];
 
-function pick(names) {
-  for (const name of names) {
-    const value = process.env[name];
-    if (value) return value.replace(/\/+$/, '');
+const URL_SUFFIX = '_REST_API_URL';
+const TOKEN_SUFFIX = '_REST_API_TOKEN';
+
+/**
+ * Находит адрес и токен хранилища.
+ *
+ * Интеграция Vercel разрешает выбрать произвольный префикс переменных, поэтому
+ * жёсткий список имён — это ловушка: с префиксом STORAGE появится
+ * STORAGE_REST_API_URL, и подключение молча не найдётся. Если известные имена
+ * не подошли, подбираем любой префикс, но обязательно берём адрес и токен от
+ * одного и того же — иначе при двух хранилищах склеим половинки от разных.
+ *
+ * Берём только `*_REST_API_URL`: переменная `*_URL` у Upstash содержит строку
+ * вида redis://, а по ней fetch не сходит.
+ */
+function credentials() {
+  for (const [urlName, tokenName] of KNOWN) {
+    if (process.env[urlName] && process.env[tokenName]) {
+      return { url: clean(process.env[urlName]), token: process.env[tokenName] };
+    }
   }
-  return '';
+  for (const key of Object.keys(process.env)) {
+    if (!key.endsWith(URL_SUFFIX) || !process.env[key]) continue;
+    const tokenName = `${key.slice(0, -URL_SUFFIX.length)}${TOKEN_SUFFIX}`;
+    if (process.env[tokenName]) {
+      return { url: clean(process.env[key]), token: process.env[tokenName] };
+    }
+  }
+  return { url: '', token: '' };
+}
+
+function clean(value) {
+  return String(value).replace(/\/+$/, '');
 }
 
 /** Хранилище не подключено — вызывающий код должен ответить 503, а не упасть. */
 function configured() {
-  return Boolean(pick(URL_ENV) && pick(TOKEN_ENV));
+  const { url, token } = credentials();
+  return Boolean(url && token);
 }
 
 async function request(path, body) {
-  const base = pick(URL_ENV);
-  const token = pick(TOKEN_ENV);
+  const { url: base, token } = credentials();
   if (!base || !token) throw new Error('store not configured');
 
   const response = await fetch(`${base}${path}`, {
