@@ -14,7 +14,7 @@ import {
 } from './fruit.js';
 import { drawOfficeIcon, drawOfficeBomb, drawSliceHint } from './office-art.js';
 import { haptic } from './telegram.js';
-import { t, ragePhrase } from './i18n.js';
+import { t, ragePhrase, penaltyPhrase } from './i18n.js';
 import { shieldConfig } from './liveops.js';
 
 export class DriveMode {
@@ -683,7 +683,10 @@ export class DriveMode {
     }
 
     if (!options.skipHud) {
-      hud.showJudgment(judgment.label, key.toLowerCase().replace('_', '-'));
+      // В Office Rage промах — это ответ работы игроку, а не сухое MISS.
+      // На дорожках (legacy) остаётся жанровая оценка.
+      const label = (this.fruitMode && key === 'MISS') ? penaltyPhrase() : judgment.label;
+      hud.showJudgment(label, key.toLowerCase().replace('_', '-'));
     }
   }
 
@@ -1374,18 +1377,24 @@ export class DriveMode {
     fx.drawFlash(ctx, w, h);
   }
 
+  /**
+   * Облако пыли от серой бомбы. Экран закрывается почти наглухо — в этом весь
+   * смысл помехи, — но HUD остаётся поверх (он в DOM), поэтому счёт и надписи
+   * видны и игрок понимает, что происходит, а не думает, что игра зависла.
+   */
   _drawDust(ctx, w, h) {
     if (this.dust <= 0.02) return;
-    const a = this.dust * 0.58;
-    ctx.fillStyle = `rgba(168, 155, 130, ${a})`;
+    const a = Math.min(0.92, this.dust * 0.92);
+    ctx.fillStyle = `rgba(150, 139, 118, ${a})`;
     ctx.fillRect(0, 0, w, h);
 
-    ctx.globalAlpha = a * 0.45;
-    for (let i = 0; i < 28; i++) {
-      const px = (i * 97 + Math.floor(this.dust * 200)) % w;
-      const py = (i * 53 + 40) % h;
-      ctx.fillStyle = i % 2 ? '#D8CBB8' : '#B8AA98';
-      ctx.fillRect(px, py, 6 + (i % 4) * 3, 3 + (i % 3) * 2);
+    // Крупные хлопья поверх заливки: без них плашка выглядит как баг рендера
+    ctx.globalAlpha = a * 0.5;
+    for (let i = 0; i < 44; i++) {
+      const px = (i * 97 + Math.floor(this.dust * 260)) % w;
+      const py = (i * 53 + Math.floor(this.dust * 90)) % h;
+      ctx.fillStyle = i % 2 ? '#D8CBB8' : '#A89880';
+      ctx.fillRect(px, py, 8 + (i % 5) * 4, 4 + (i % 3) * 3);
     }
     ctx.globalAlpha = 1;
   }

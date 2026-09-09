@@ -2242,6 +2242,8 @@ const RAGE = {
   zh: ['这是加班的份！', '会议取消！', '不归我管！', '我休假了！'],
 };
 
+const JUDGE_MISS = 'MISS';
+
 let lastRage = -1;
 
 /** Случайная фраза, но не та же самая два раза подряд — это читается как баг. */
@@ -2252,6 +2254,47 @@ export function ragePhrase() {
   let index = Math.floor(Math.random() * pool.length);
   if (index === lastRage) index = (index + 1) % pool.length;
   lastRage = index;
+  return pool[index];
+}
+
+/**
+ * Надписи при промахе. Та же логика, что и у выкриков: одно слово MISS
+ * ничего не рассказывает, а режим — про то, как отыгрываются за работу.
+ * Здесь наоборот — то, чем работа отвечает.
+ */
+const PENALTY = {
+  en: [
+    'WRITTEN UP!', 'PAY DOCKED!', 'NO BONUS!', 'SEE ME AT 9!',
+    'THAT IS ON YOU!', 'ESCALATED!', 'DO IT AGAIN!', 'OVERTIME!',
+  ],
+  ru: [
+    'ВЫГОВОР!', 'ШТРАФ!', 'ПРЕМИИ НЕТ!', 'ЗАЙДИ К ШЕФУ!',
+    'ЭТО НА ТЕБЕ!', 'ЭСКАЛАЦИЯ!', 'ПЕРЕДЕЛЫВАЙ!', 'ОСТАЁШЬСЯ!',
+  ],
+  uk: ['ДОГАНА!', 'ШТРАФ!', 'ПРЕМІЇ НЕМА!', 'ЗАЛИШАЄШСЯ!'],
+  es: ['¡AMONESTACIÓN!', '¡SIN BONO!', '¡A MI DESPACHO!', '¡HORAS EXTRA!'],
+  pt: ['ADVERTÊNCIA!', 'SEM BÔNUS!', 'NA MINHA SALA!', 'HORA EXTRA!'],
+  de: ['ABMAHNUNG!', 'KEIN BONUS!', 'ZU MIR INS BÜRO!', 'ÜBERSTUNDEN!'],
+  fr: ['AVERTISSEMENT !', 'PAS DE PRIME !', 'DANS MON BUREAU !', 'HEURES SUP !'],
+  it: ['RICHIAMO!', 'NIENTE BONUS!', 'NEL MIO UFFICIO!', 'STRAORDINARI!'],
+  pl: ['NAGANA!', 'BEZ PREMII!', 'DO MNIE DO BIURA!', 'NADGODZINY!'],
+  tr: ['UYARI ALDIN!', 'PRİM YOK!', 'ODAMA GEL!', 'FAZLA MESAİ!'],
+  id: ['SURAT PERINGATAN!', 'BONUS HANGUS!', 'KE RUANGAN SAYA!', 'LEMBUR!'],
+  hi: ['चेतावनी!', 'बोनस नहीं!', 'मेरे केबिन में आओ!', 'ओवरटाइम!'],
+  ar: ['إنذار!', 'لا مكافأة!', 'إلى مكتبي!', 'عمل إضافي!'],
+  zh: ['警告处分！', '奖金没了！', '来我办公室！', '加班吧！'],
+};
+
+let lastPenalty = -1;
+
+/** Фраза на промах. Как и выкрики, не повторяется два раза подряд. */
+export function penaltyPhrase() {
+  const pool = PENALTY[current]?.length ? PENALTY[current] : PENALTY[FALLBACK];
+  if (!pool?.length) return JUDGE_MISS;
+  if (pool.length === 1) return pool[0];
+  let index = Math.floor(Math.random() * pool.length);
+  if (index === lastPenalty) index = (index + 1) % pool.length;
+  lastPenalty = index;
   return pool[index];
 }
 

@@ -215,11 +215,21 @@ export class Ui {
     this._syncBackButton();
   }
 
+  /**
+   * Системная кнопка «Назад» Telegram.
+   *
+   * Во время партии она скрыта намеренно: на Android свайп от края экрана —
+   * это её жест, и в режиме, где режут свайпами по всему экрану, он
+   * регулярно прилетал посреди игры и ставил паузу. Пока идёт партия, выход только через
+   * свою кнопку паузы; на паузе «Назад» снова доступна и уводит в меню.
+   */
   _syncBackButton() {
     const screen = document.body.dataset.screen;
+    const paused = Boolean(this.el.pauseOverlay)
+      && !this.el.pauseOverlay.classList.contains('hidden');
     showBackButton(
       this.isLibraryOpen()
-      || screen === 'game'
+      || (screen === 'game' && paused)
       || screen === 'result'
       || screen === 'profile'
     );
@@ -752,11 +762,13 @@ export class Ui {
     }
     this.el.pauseOverlay?.classList.remove('hidden');
     if (this.el.pauseBtn) this.el.pauseBtn.classList.add('hidden');
+    this._syncBackButton();
   }
 
   hidePause() {
     this.el.pauseOverlay?.classList.add('hidden');
     if (this.el.pauseBtn) this.el.pauseBtn.classList.remove('hidden');
+    this._syncBackButton();
   }
 
   showCoach(modeId, difficulty) {
