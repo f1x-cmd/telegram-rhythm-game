@@ -4,6 +4,7 @@
  */
 
 import { storage, peekLocal } from './telegram.js';
+import { trackEvent } from './analytics.js';
 
 const KEY = 'telemetry_v1';
 const MAX = 250;
@@ -28,6 +29,9 @@ export function logEvent(type, payload = {}) {
   events.push({ at: Date.now(), type, ...payload });
   if (events.length > MAX) events = events.slice(-MAX);
   storage.set(KEY, JSON.stringify(events));
+  // Тот же факт уходит в Vercel в обезличенном виде: журнал знает только
+  // это устройство, а сводка по всем игрокам живёт там.
+  trackEvent(type, payload);
 }
 
 export function telemetry() {

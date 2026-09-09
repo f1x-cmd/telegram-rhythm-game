@@ -271,6 +271,16 @@
 
   </div>
 
+  <!--
+    Vercel Web Analytics. Заглушка ставит очередь до загрузки скрипта, поэтому
+    va() безопасно вызывать сразу; вне Vercel скрипт просто не отдаётся и
+    события остаются в очереди, ничего не ломая.
+  -->
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
+
   <script type="module" src="js/main.js"></script>
 </body>
 </html>
