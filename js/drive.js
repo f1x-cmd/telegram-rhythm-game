@@ -36,6 +36,7 @@ export class DriveMode {
     this.slices = 0;
     this.fruitMode = false;
     this.dust = 0;
+    this.dustHold = 0;
     this.helpClears = 0;
     this.lastWrongAt = 0;
     this.score = 0;
@@ -118,6 +119,7 @@ export class DriveMode {
     this.smashHits = 0;
     this.slices = 0;
     this.dust = 0;
+    this.dustHold = 0;
     this.helpClears = 0;
     this.lastWrongAt = 0;
     this.score = 0;
@@ -1157,7 +1159,7 @@ export class DriveMode {
     this.lastWrongAt = now;
     const { fx, hud } = this.game;
     fx.ring(pos.x, pos.y, '#FFD166', officeRadius(note, this.game.width) * 0.4, officeRadius(note, this.game.width) * 1.35, 0.28, 3);
-    hud.showJudgment(t('judgment.wrong'), 'good');
+    hud.showJudgment(t('judgment.wrong'), 'wrong');
     haptic('warning');
   }
 
@@ -1189,7 +1191,7 @@ export class DriveMode {
     const label = note.type === 'golden'
       ? t('judgment.payday')
       : key === 'PERFECT_PLUS' ? t('judgment.shredPlus') : ragePhrase();
-    const cls = note.type === 'golden' ? 'mash' : key === 'PERFECT_PLUS' ? 'perfect-plus' : 'great';
+    const cls = note.type === 'golden' ? 'payday' : key === 'PERFECT_PLUS' ? 'shred-plus' : 'shred';
     if (!options.skipHud) hud.showJudgment(label, cls);
     haptic(note.type === 'golden' ? 'heavy' : 'rigid');
   }
@@ -1241,7 +1243,7 @@ export class DriveMode {
       this._sliceProp(other, pos.x, pos.y, Math.random() * Math.PI, now, { skipHud: true });
     }
 
-    hud.showJudgment(t('judgment.clear'), 'great');
+    hud.showJudgment(t('judgment.clear'), 'clear');
     haptic('heavy');
   }
 
@@ -1266,7 +1268,7 @@ export class DriveMode {
       this.rage = Math.max(0, this.rage - RAGE_MISS * 0.8);
     }
 
-    hud.showJudgment(t('judgment.dust'), 'good');
+    hud.showJudgment(t('judgment.dust'), 'dust');
     haptic('soft');
   }
 
@@ -1298,12 +1300,16 @@ export class DriveMode {
 
   _addDust(amount) {
     this.dust = Math.min(1, this.dust + amount);
+    // Держим полную непрозрачность, а не начинаем таять сразу: иначе помеха
+    // проходит быстрее, чем игрок успевает её заметить.
+    this.dustHold = Math.max(this.dustHold, OFFICE.dustHold);
   }
 
   _fruitUpdate(now, songTime, dt) {
     const { audio, notePool, width, height } = this.game;
 
-    this.dust = Math.max(0, this.dust - dt * OFFICE.dustDecay);
+    if (this.dustHold > 0) this.dustHold = Math.max(0, this.dustHold - dt);
+    else this.dust = Math.max(0, this.dust - dt * OFFICE.dustDecay);
 
     this.shieldActive = this.diff.canFail
       && (songTime < this.shieldTime || this.misses < this.shieldMisses);
