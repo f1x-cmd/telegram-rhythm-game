@@ -2244,18 +2244,7 @@ const RAGE = {
 
 const JUDGE_MISS = 'MISS';
 
-let lastRage = -1;
 
-/** Случайная фраза, но не та же самая два раза подряд — это читается как баг. */
-export function ragePhrase() {
-  const pool = RAGE[current]?.length ? RAGE[current] : RAGE[FALLBACK];
-  if (!pool?.length) return t('judgment.shred');
-  if (pool.length === 1) return pool[0];
-  let index = Math.floor(Math.random() * pool.length);
-  if (index === lastRage) index = (index + 1) % pool.length;
-  lastRage = index;
-  return pool[index];
-}
 
 /**
  * Надписи при промахе. Та же логика, что и у выкриков: одно слово MISS
@@ -2285,17 +2274,73 @@ const PENALTY = {
   zh: ['警告处分！', '奖金没了！', '来我办公室！', '加班吧！'],
 };
 
-let lastPenalty = -1;
 
-/** Фраза на промах. Как и выкрики, не повторяется два раза подряд. */
-export function penaltyPhrase() {
-  const pool = PENALTY[current]?.length ? PENALTY[current] : PENALTY[FALLBACK];
-  if (!pool?.length) return JUDGE_MISS;
+
+/**
+ * Разрез не по стрелке. Это не промах и не наказание, а придирка: работа
+ * недовольна не результатом, а тем, что сделано не по форме.
+ */
+const SCOLD = {
+  en: [
+    'NOT THE PROCESS!', 'WRONG TEMPLATE!', 'READ THE SPEC!',
+    'NEEDS APPROVAL!', 'BACK FOR EDITS!', 'FOLLOW THE ARROW!',
+    'WHERE IS THE SIGN-OFF?', 'OFF BRAND!',
+  ],
+  ru: [
+    'НЕ ПО РЕГЛАМЕНТУ!', 'НЕ ТОТ ШАБЛОН!', 'ЧИТАЙ ИНСТРУКЦИЮ!',
+    'СОГЛАСУЙ СНАЧАЛА!', 'НА ДОРАБОТКУ!', 'ВЕДИ ПО СТРЕЛКЕ!',
+    'ГДЕ ПОДПИСЬ?', 'НЕ ПО ПРОЦЕССУ!',
+  ],
+  uk: ['НЕ ЗА РЕГЛАМЕНТОМ!', 'НЕ ТОЙ ШАБЛОН!', 'ЧИТАЙ ІНСТРУКЦІЮ!', 'НА ДООПРАЦЮВАННЯ!'],
+  es: ['¡NO ES EL PROCESO!', '¡PLANTILLA ERRÓNEA!', '¡LEE EL MANUAL!', '¡A REVISIÓN!'],
+  pt: ['FORA DO PROCESSO!', 'MODELO ERRADO!', 'LEIA O MANUAL!', 'VOLTOU PRA REVISÃO!'],
+  de: ['NICHT NACH VORSCHRIFT!', 'FALSCHE VORLAGE!', 'HANDBUCH LESEN!', 'NOCHMAL MACHEN!'],
+  fr: ['HORS PROCÉDURE !', 'MAUVAIS MODÈLE !', 'LIS LA CONSIGNE !', 'À REVOIR !'],
+  it: ['FUORI PROCEDURA!', 'MODELLO SBAGLIATO!', 'LEGGI IL MANUALE!', 'DA RIFARE!'],
+  pl: ['WBREW PROCEDURZE!', 'ZŁY SZABLON!', 'CZYTAJ INSTRUKCJĘ!', 'DO POPRAWY!'],
+  tr: ['PROSEDÜRE UYMADIN!', 'YANLIŞ ŞABLON!', 'KILAVUZU OKU!', 'REVİZYONA!'],
+  id: ['TIDAK SESUAI PROSEDUR!', 'TEMPLATE SALAH!', 'BACA PANDUANNYA!', 'REVISI LAGI!'],
+  hi: ['नियम के खिलाफ!', 'ग़लत टेम्पलेट!', 'निर्देश पढ़ो!', 'दोबारा करो!'],
+  ar: ['خارج الإجراءات!', 'النموذج خطأ!', 'اقرأ التعليمات!', 'أعِد العمل!'],
+  zh: ['不合流程！', '模板不对！', '看看说明！', '打回重做！'],
+};
+
+/**
+ * Достаёт случайную фразу из пула текущего языка.
+ *
+ * Одна и та же подряд не выпадает: повтор читается как залипший текст, а не
+ * как задумка. Индекс последней фразы хранится на каждый пул отдельно, иначе
+ * выкрик и наказание мешали бы друг другу.
+ *
+ * @param {Record<string, string[]>} pools пулы по языкам
+ * @param {string} fallback что вернуть, если пул пуст даже в английском
+ */
+const lastPick = new Map();
+
+function pickPhrase(pools, fallback) {
+  const pool = pools[current]?.length ? pools[current] : pools[FALLBACK];
+  if (!pool?.length) return fallback;
   if (pool.length === 1) return pool[0];
+  const previous = lastPick.get(pools) ?? -1;
   let index = Math.floor(Math.random() * pool.length);
-  if (index === lastPenalty) index = (index + 1) % pool.length;
-  lastPenalty = index;
+  if (index === previous) index = (index + 1) % pool.length;
+  lastPick.set(pools, index);
   return pool[index];
+}
+
+/** Выкрик при удачном разрезе. */
+export function ragePhrase() {
+  return pickPhrase(RAGE, t('judgment.shred'));
+}
+
+/** Что работа отвечает на промах. */
+export function penaltyPhrase() {
+  return pickPhrase(PENALTY, JUDGE_MISS);
+}
+
+/** Придирка за разрез не по стрелке. */
+export function scoldPhrase() {
+  return pickPhrase(SCOLD, t('judgment.wrong'));
 }
 
 /** 'pt-BR' → 'pt', 'zh-Hans-CN' → 'zh'; неизвестный код → null. */

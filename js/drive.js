@@ -14,7 +14,7 @@ import {
 } from './fruit.js';
 import { drawOfficeIcon, drawOfficeBomb, drawSliceHint } from './office-art.js';
 import { haptic } from './telegram.js';
-import { t, ragePhrase, penaltyPhrase } from './i18n.js';
+import { t, ragePhrase, penaltyPhrase, scoldPhrase } from './i18n.js';
 import { shieldConfig } from './liveops.js';
 
 export class DriveMode {
@@ -1164,7 +1164,7 @@ export class DriveMode {
     this.lastWrongAt = now;
     const { fx, hud } = this.game;
     fx.ring(pos.x, pos.y, '#FFD166', officeRadius(note, this.game.width) * 0.4, officeRadius(note, this.game.width) * 1.35, 0.28, 3);
-    hud.showJudgment(t('judgment.wrong'), 'wrong');
+    hud.showJudgment(scoldPhrase(), 'wrong');
     haptic('warning');
   }
 
