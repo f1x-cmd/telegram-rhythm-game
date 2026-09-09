@@ -1120,10 +1120,15 @@ export class DriveMode {
   _bladeSlice(x1, y1, x2, y2, now, slot = null, tap = false) {
     const { notePool, audio, width, height } = this.game;
     const angle = (x1 === x2 && y1 === y2) ? 0 : bladeAngle(x1, y1, x2, y2);
-    const dirX1 = slot ? slot.startX : x1;
-    const dirY1 = slot ? slot.startY : y1;
-    const dirX2 = slot ? slot.x : x2;
-    const dirY2 = slot ? slot.y : y2;
+    // Направление жеста: весь ход пальца от точки нажатия. Пока он слишком
+    // короткий, чтобы что-то значить, смотрим на последний отрезок — иначе
+    // начало любого свайпа проходило бы проверку стрелки просто так.
+    let dirX = (slot ? slot.x : x2) - (slot ? slot.startX : x1);
+    let dirY = (slot ? slot.y : y2) - (slot ? slot.startY : y1);
+    if (Math.hypot(dirX, dirY) < OFFICE.dirMinPx) {
+      dirX = x2 - x1;
+      dirY = y2 - y1;
+    }
     const hits = [];
 
     for (let i = 0; i < notePool.size; i++) {
@@ -1138,7 +1143,7 @@ export class DriveMode {
 
       if (note.type === 'avoid') {
         hits.push({ note, pos, bomb: true });
-      } else if (sliceMatchesDir(note, dirX1, dirY1, dirX2, dirY2, this.diff.sliceDir)) {
+      } else if (sliceMatchesDir(note, dirX, dirY, this.diff.sliceDir)) {
         hits.push({ note, pos, bomb: false });
       } else {
         this._wrongSlice(note, pos, now);

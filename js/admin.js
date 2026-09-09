@@ -224,13 +224,18 @@ function collectPatch() {
   };
 }
 
-function bars(map, empty) {
+/**
+ * @param {object} map подпись → число
+ * @param {string} empty текст, когда данных нет
+ * @param {boolean} byValue сортировать по величине. Для дат — нет: там нужен
+ *        порядок по убыванию даты, иначе свежий день теряется в середине.
+ */
+function bars(map, empty, byValue = true) {
   const entries = Object.entries(map || {});
   if (!entries.length) return `<p class="muted">${empty}</p>`;
   const max = Math.max(...entries.map(([, n]) => n), 1);
-  return entries
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
+  return (byValue ? entries.sort((a, b) => b[1] - a[1]) : entries)
+    .slice(0, 14)
     .map(([label, n]) => `
       <div class="bar-row">
         <span>${esc(label)}</span>
@@ -255,7 +260,11 @@ function renderOverview() {
     ['Инвайты / Stars', `${kpi.invites} / ${kpi.donates}`],
   ].map(([label, value]) => `<article class="kpi"><b>${typeof value === 'number' ? fmt(value) : value}</b><span>${label}</span></article>`).join('');
 
-  $('#day-bars').innerHTML = bars(kpi.days, 'Ещё нет партий на этом устройстве');
+  // Свежие дни сверху: у графика по датам порядок важнее величины
+  const localDays = Object.fromEntries(
+    Object.entries(kpi.days || {}).sort((a, b) => (a[0] < b[0] ? 1 : -1)),
+  );
+  $('#day-bars').innerHTML = bars(localDays, 'Ещё нет партий на этом устройстве', false);
   $('#split-bars').innerHTML = bars(
     { RELAX: kpi.byMode.relax, DRIVE: kpi.byMode.drive, ...kpi.byTrack },
     'Нет разбивки — сыграйте хотя бы одну партию',
@@ -302,9 +311,8 @@ async function renderNetwork() {
   ].map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
 
   if (bars) {
-    // Дни идут от свежего к старому — для графика разворачиваем
-    const dau = Object.fromEntries(Object.entries(stats.dau || {}).reverse());
-    bars.innerHTML = bars2(dau, 'Активности пока не было');
+    // Сервер отдаёт дни от свежего к старому — так и показываем
+    bars.innerHTML = bars2(stats.dau || {}, 'Активности пока не было');
   }
 }
 

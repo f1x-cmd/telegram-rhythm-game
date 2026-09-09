@@ -70,17 +70,29 @@ const DIR_ANGLES = {
   down: Math.PI / 2,
 };
 
-/** Резать по направлению стрелки (medium / hard). Короткий жест ещё не задаёт ось. */
-export function sliceMatchesDir(note, x1, y1, x2, y2, required) {
+/**
+ * Совпадает ли направление жеста со стрелкой на предмете (medium / hard).
+ *
+ * Принимает уже готовый вектор: вызывающий сам решает, брать весь ход пальца
+ * или последний отрезок. Слишком короткий жест направления не задаёт и по
+ * стрелке не засчитывается — иначе тапом можно было бы игнорировать стрелки,
+ * ради которых сложность и существует.
+ *
+ * @param {{dir: string|null}} note
+ * @param {number} dx смещение жеста по X
+ * @param {number} dy смещение жеста по Y
+ * @param {boolean} required включена ли проверка на этой сложности
+ */
+export function sliceMatchesDir(note, dx, dy, required) {
   if (!required || !note.dir) return true;
-  if (Math.hypot(x2 - x1, y2 - y1) < 28) return true;
   const target = DIR_ANGLES[note.dir];
   if (target === undefined) return true;
+  if (Math.hypot(dx, dy) < OFFICE.dirMinPx) return false;
 
-  const angle = bladeAngle(x1, y1, x2, y2);
+  const angle = Math.atan2(dy, dx);
   let delta = Math.abs(angle - target);
   if (delta > Math.PI) delta = Math.PI * 2 - delta;
-  return delta <= (Math.PI * 2) / 3;
+  return delta <= (OFFICE.dirToleranceDeg * Math.PI) / 180;
 }
 
 /** Когда предмет проходит «идеальную» высоту для разреза. */
